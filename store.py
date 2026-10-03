@@ -49,6 +49,17 @@ def _setting(env, key, default):
     return default
 
 
+def password():
+    """Optional shared secret required on every request. Empty = no auth.
+
+    Empty is the right default for a laptop nobody else can reach. Set it the
+    moment the app is reachable from another machine: every /api endpoint can
+    delete from the index, start OCR or write files, so being able to open the
+    page has to mean being allowed to do that.
+    """
+    return _setting("WOOD_PASSWORD", "password", "")
+
+
 def _auto_root():
     """The library root, when the app sits inside one.
 

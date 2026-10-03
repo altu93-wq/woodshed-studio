@@ -11,5 +11,8 @@
   "_inbox": "drop folder for new PDFs. Default: <library_root>/new books. Created on first run.",
 
   "trash": "D:\\MyBooks\\_trash",
-  "_trash": "where a deleted PDF is moved instead of being erased. Default: <library_root>/_trash."
+  "_trash": "where a deleted PDF is moved instead of being erased. Default: <library_root>/_trash.",
+
+  "password": "",
+  "_password": "leave empty for no password (fine on a laptop nobody else can reach). Set it once the app is reachable from another machine: every /api endpoint can delete from the index, run OCR or write files. The browser asks for it once and remembers it. WOOD_PASSWORD overrides this."
 }

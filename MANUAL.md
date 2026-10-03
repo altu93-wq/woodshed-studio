@@ -5,19 +5,20 @@ architecture; [`NOTES.md`](NOTES.md) is *why* things are built the way they are.
 This file is **how you actually use it**.
 
 - [1. Starting it up](#1-starting-it-up)
-- [2. Pointing it at a library](#2-pointing-it-at-a-library)
-- [3. Getting books in](#3-getting-books-in)
-- [4. Searching](#4-searching)
-- [5. The Topic Map](#5-the-topic-map)
-- [6. The Reader](#6-the-reader)
-- [7. The book table](#7-the-book-table)
-- [8. Scanned books and OCR](#8-scanned-books-and-ocr)
-- [9. Semantic search](#9-semantic-search)
-- [10. Deleting things](#10-deleting-things)
-- [11. Health](#11-health)
-- [12. Everyday commands](#12-everyday-commands)
-- [13. When something is wrong](#13-when-something-is-wrong)
-- [14. Backups](#14-backups)
+- [2. Reaching it from another machine](#2-reaching-it-from-another-machine)
+- [3. Pointing it at a library](#3-pointing-it-at-a-library)
+- [4. Getting books in](#4-getting-books-in)
+- [5. Searching](#5-searching)
+- [6. The Topic Map](#6-the-topic-map)
+- [7. The Reader](#7-the-reader)
+- [8. The book table](#8-the-book-table)
+- [9. Scanned books and OCR](#9-scanned-books-and-ocr)
+- [10. Semantic search](#10-semantic-search)
+- [11. Deleting things](#11-deleting-things)
+- [12. Health](#12-health)
+- [13. Everyday commands](#13-everyday-commands)
+- [14. When something is wrong](#14-when-something-is-wrong)
+- [15. Backups](#15-backups)
 
 ---
 
@@ -36,11 +37,96 @@ The banner prints two addresses. The second one (for example
 `http://192.168.1.107:8766`) is the same app on your phone, as long as the
 phone is on the same Wi-Fi — the whole UI is built for touch.
 
-Nothing is uploaded anywhere. The server binds to your machine only.
+Nothing is uploaded anywhere — the library stays on this disk. The
+server does listen on the network, so read
+[Reaching it from another machine](#2-reaching-it-from-another-machine)
+before you forward a port.
 
 ---
 
-## 2. Pointing it at a library
+## 2. Reaching it from another machine
+
+The server listens on **every network interface** on port 8766. Anything that
+can route to this computer can open it: the rest of the house on Wi-Fi, and —
+if you forward the port — the internet. Listening broadly is what makes phone
+use on the same network work, and it is exactly what you do not want beyond
+that. So pick deliberately.
+
+**Same Wi-Fi** — nothing to set up. The banner prints the address, for example
+`http://192.168.1.107:8766`; open it on the phone and the whole UI is built for
+touch.
+
+**Anywhere else** — set a password first.
+
+### Setting a password
+
+Create `config.json` next to `studio.py`:
+
+```json
+{ "password": "choose-something" }
+```
+
+or set the `WOOD_PASSWORD` environment variable, which wins over the file.
+Restart the server afterwards.
+
+The browser asks once and then remembers it for that origin, so the activity
+stream, the reader's page requests and everything after it carry it
+automatically — there is no login form to submit and no token in any URL. Leave
+the username blank; only the password matters.
+
+The startup banner says which state you are in:
+
+```
+> Password : required
+> Password : not set (open to anyone who can reach this port)
+```
+
+Leaving it unset changes nothing, and that is the right default for a laptop
+nobody else can reach.
+
+### From home and away with Tailscale
+
+The simplest way to use the library somewhere else. Install Tailscale
+(<https://tailscale.com>) on this PC and on the device you want to browse from,
+sign both into the same account, and open:
+
+```
+http://<this-machine>:8766
+```
+
+No port forwarding, no public IP, no certificate to renew — and it works on
+networks where you do not have a public address at all. Traffic between your
+devices is already encrypted, so the password is the second lock rather than
+the only one.
+
+The machine name and address come from the Tailscale admin console, or from
+`tailscale ip -4` on this PC.
+
+### Letting somebody else in
+
+**Do not forward the port.** Anyone who finds the address gets a UI whose every
+`/api` endpoint can delete from the index, start OCR, or write files.
+
+Use sharing instead: in the Tailscale admin console, **Machines** → this
+machine → **Share**, then either send an invite by email or copy an invite link.
+They accept it with **their own** Tailscale account and can reach **only this
+machine** — nothing else on your tailnet. Revoke it from the same dialog
+whenever you like.
+
+On their side the address is the fully qualified name; the short one does not
+resolve for them:
+
+```
+http://<this-machine>.<tailnet>.ts.net:8766
+```
+
+> **What the activity log records.** It logs *actions* — indexing, OCR, uploads,
+> deletions, merges — not *access*. Someone opening the library and searching
+> leaves nothing behind, and neither does a wrong password. If you share access,
+> read the log as a record of what was done to the index, not of who was logged
+> in.
+
+## 3. Pointing it at a library
 
 The **library root** is the folder that contains your book folders. If the app
 sits in `<root>/_index/studio/`, it finds itself with no configuration at all —
@@ -87,7 +173,7 @@ in the browser without leaving it.
 
 ---
 
-## 3. Getting books in
+## 4. Getting books in
 
 There are three routes, in increasing order of surprise.
 
@@ -124,7 +210,7 @@ leaving every page row alone.
 
 ---
 
-## 4. Searching
+## 5. Searching
 
 Type in the big box. Results appear as you type; keep scrolling for more —
 paging never repeats a page you already saw, because results are diversified so
@@ -188,7 +274,7 @@ corpus. The semantic layer is English; this is expansion, not translation.
 
 ---
 
-## 5. The Topic Map
+## 6. The Topic Map
 
 **🗺️ Topic Map** shows which words actually occur together in *your* library.
 It is not a general knowledge graph — it is a map of your books.
@@ -207,7 +293,7 @@ the app.
 
 ---
 
-## 6. The Reader
+## 7. The Reader
 
 Hit **📖 Reader**, or click a result title. The reader opens the actual PDF at
 the page you hit and highlights the word you searched for.
@@ -220,7 +306,7 @@ because it renders only the page you are on.
 
 ---
 
-## 7. The book table
+## 8. The book table
 
 **📥 Add & OCR** lists the whole library. Columns: checkbox, Book, Year, Pages,
 Status, Modified, Actions.
@@ -254,7 +340,7 @@ book that indexed badly. Your PDF is not touched.
 
 ---
 
-## 8. Scanned books and OCR
+## 9. Scanned books and OCR
 
 A PDF with no extractable text is indexed anyway as **image-only** — zero
 searchable pages, but present in the table and flagged, rather than silently
@@ -277,7 +363,7 @@ Health tab shows which engine is active.
 
 ---
 
-## 9. Semantic search
+## 10. Semantic search
 
 Keyword search finds pages that contain your words. Semantic search also finds
 pages that *describe* your words — search "stop tearout" and reach the page that
@@ -311,7 +397,7 @@ and nothing else.
 
 ---
 
-## 10. Deleting things
+## 11. Deleting things
 
 Every delete asks one question with three answers, spelled out rather than
 hidden behind a browser `confirm()`:
@@ -334,7 +420,7 @@ stale vectors cannot linger.
 
 ---
 
-## 11. Health
+## 12. Health
 
 **🩺 Health** is the honest dashboard — real counts, not a marketing number.
 
@@ -357,7 +443,7 @@ The footer restates the resolved paths and the exact database file in use.
 
 ---
 
-## 12. Everyday commands
+## 13. Everyday commands
 
 ```
 py -3 studio.py where            show the resolved paths
@@ -390,7 +476,7 @@ nonsense instead of failing.
 
 ---
 
-## 13. When something is wrong
+## 14. When something is wrong
 
 **A search returns nothing you expect.**
 Check the result badge: if it says *keyword*, the semantic layer is not ready.
@@ -423,7 +509,7 @@ touches nothing else.
 
 ---
 
-## 14. Backups
+## 15. Backups
 
 **`index.db` is the only file worth backing up.** It is the entire library:
 every page of text, every title, every year.

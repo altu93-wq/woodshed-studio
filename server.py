@@ -12,7 +12,8 @@ Stdlib HTTP server. Production rules:
     folder in the library.
   py -3 server.py  ->  http://localhost:8766
 """
-import os, re, json, time, sqlite3, threading, socket, shutil, queue as Queue
+import os, re, json, time, sqlite3, threading, socket, shutil, base64, hmac
+import queue as Queue
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote
 
@@ -750,7 +751,68 @@ class H(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    # --- optional shared-secret auth ------------------------------------
+    # Basic auth on purpose: the browser remembers it for the origin, so the
+    # SSE stream, the reader's Range requests and every fetch after the first
+    # page load go out with the header already attached. No token in a URL,
+    # no login form, no cookie to expire mid-session.
+    #
+    # It guards everything, including /api/health, so the page cannot be
+    # probed before it is opened. When no password is configured this is a
+    # single dict lookup that returns "allowed" - the local default.
+    def _auth_ok(self):
+        want = store.password()
+        if not want:
+            return True
+        got = self.headers.get("Authorization") or ""
+        if not got.lower().startswith("basic "):
+            return False
+        try:
+            raw = base64.b64decode(got.split(None, 1)[1]).decode("utf-8", "replace")
+        except (ValueError, IndexError, TypeError):
+            return False
+        # "user:password"; the username is ignored, so one shared secret is
+        # enough and nobody has to invent an account name.
+        given = raw.split(":", 1)[1] if ":" in raw else ""
+        return hmac.compare_digest(given.encode("utf-8"), want.encode("utf-8"))
+
+    def _deny(self):
+        # Not every client shows a login prompt - an embedded webview, a
+        # script, a curl - and those land on whatever body we send. A browser
+        # navigating gets a readable page; everything else keeps JSON, because
+        # studio.html parses every response as JSON and an HTML error body
+        # would throw inside fetch() instead of showing a message.
+        if "text/html" in (self.headers.get("Accept") or ""):
+            body = ("""<!doctype html><meta charset="utf-8">"""
+                    """<title>Woodshed Studio</title><style>"""
+                    """body{background:#16191d;color:#e8eaed;margin:0;height:100vh;display:grid;"""
+                    """place-items:center;font:16px/1.6 system-ui,'Segoe UI',sans-serif;text-align:center}"""
+                    """div{max-width:32rem;padding:2rem}h1{font-weight:600;letter-spacing:.3px}"""
+                    """p{color:#9aa4b2}code{color:#7fa8d0}</style>"""
+                    """<div><h1>&#129720; Woodshed Studio</h1>"""
+                    """<p>This library is password protected.</p>"""
+                    """<p>Your browser should ask for the password &mdash; enter it with an empty
+                    username. If no prompt appeared, reload, or ask whoever set this up.</p></div>"""
+                    ).encode("utf-8")
+            ctype = "text/html; charset=utf-8"
+        else:
+            body = b'{"error":"password required"}'
+            ctype = "application/json"
+        self.send_response(401)
+        self.send_header("WWW-Authenticate",
+                         'Basic realm="Woodshed Studio", charset="UTF-8"')
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def do_GET(self):
+        if not self._auth_ok():
+            return self._deny()
         u = urlparse(self.path)
         qs = parse_qs(u.query)
         g = lambda k, d="": qs.get(k, [d])[0]
@@ -981,6 +1043,8 @@ class H(BaseHTTPRequestHandler):
                 remaining -= len(chunk)
 
     def do_HEAD(self):
+        if not self._auth_ok():
+            return self._deny()
         u = urlparse(self.path)
         if u.path == "/pdf":
             try:
@@ -995,6 +1059,8 @@ class H(BaseHTTPRequestHandler):
         self.send_response(200); self.send_header("Content-Length", "0"); self.end_headers()
 
     def do_POST(self):
+        if not self._auth_ok():
+            return self._deny()
         u = urlparse(self.path)
         length = int(self.headers.get("Content-Length") or 0)
         if u.path == "/api/upload":
@@ -1381,6 +1447,8 @@ def main():
     print("Woodshed Studio Lab v2.0")
     print(f"  > On this PC               : http://localhost:{PORT}")
     print(f"  > On your phone (same Wi-Fi): http://{ip}:{PORT}")
+    print("  > Password                 : "
+          + ("required" if store.password() else "not set (open to anyone who can reach this port)"))
     print(f"  > Library root             : {store.ROOT}")
     print(f"  > Library DB               : {store.DB}")
     print(f"  > Inbox (drop folder)      : {INBOX}")
