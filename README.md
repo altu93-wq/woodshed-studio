@@ -28,7 +28,10 @@ goes into a database you own.
 
 ## Requirements
 
-Python 3.10+. Everything else is the standard library.
+Python 3.12+. Everything else is the standard library.
+
+3.12 is the floor rather than a technical one — the code also parses as 3.10
+syntax — but 3.12 is the oldest interpreter this has actually been run on.
 
 ```
 py -3 -m pip install -r requirements.txt
