@@ -33,3 +33,7 @@ __pycache__/
 yearfix_changes.csv
 titlefix_changes.csv
 index.db.bak-titlefix-*
+# test veri onbellegi (canli API den yeniden uretilir)
+_b.json
+_expect.json
+server_stdout.log

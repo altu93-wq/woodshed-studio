@@ -203,3 +203,59 @@ def detect(path, collection=None, meta_title=None, head_text=None, year=None):
         return combine(pub, issue, year), "masthead"
 
     return None, "fallback"
+
+# --- display_name ---------------------------------------------------------
+# A file name is something a person typed, not something they designed: "_"
+# where a space belongs, a "-ne" left by whatever chopped the title short, a
+# "vk_com" watermark from the site the file came off, a "{3D1EA16D}" hash a
+# downloader added to make the name unique. Those are removed for DISPLAY
+# ONLY - the file on disk, the index row and every search key keep the
+# original. Words run together with no separator at all ("1902Modern
+# Carpentry") are left alone: splitting those needs a dictionary and guesses
+# wrong more often than it helps.
+#
+# This is the counterpart of `prettyName()` in studio.html. The two must stay
+# in step - a name cleaned differently depending on which screen shows it is
+# worse than not cleaning it at all - and `nametest.js` checks that they
+# agree on every title in the library.
+
+_SHOUT_OK = {"USA", "UK", "EU", "PDF", "DVD", "CD", "CNC", "3D", "TAO",
+             "ISBN", "EST", "USSR"}
+
+# Order matters inside the alternation: the longest mark is tried first, or
+# "vk_com_en" is consumed here and "englishmagazines" is left behind.
+_SITE_MARK = re.compile(
+    r"(^|[\s_(\[])(?:"
+    r"vk[_ .-]?com[_ .-]?en(?:glishmagazines)?|englishmagazines?|pdfdrive|"
+    r"libgen|annas-?archive|vk[_ .-]?com(?:[_ .-]?en)?)"
+    r"([\s_)\]]*)", re.I)
+_EMPTY_BRACKETS = re.compile(r"\(\s*\)|\[\s*\]|\{\s*\}")
+_HASH_TAIL = re.compile(r"\s*\{[0-9a-f]{6,}\}$", re.I)
+_NE_TAIL = re.compile(r"[-_]ne(?:[_ .-]?en)?\b[\s.-]*$", re.I)
+_DASH_RUN = re.compile(r"\s*[-\u2013\u2014]\s*[-\u2013\u2014]\s*")
+_SPACES = re.compile(r"\s{2,}")
+# A doubled bracket is a typo, not part of the title: "The Pocket Hole
+# Drilling Jig ((Danny Proulx)" arrives that way from the file name.
+_SHOUT = re.compile(r"(^|[\s\-\u2013\u2014(/&])([A-Z]{4,})(?=$|[\s\-\u2013\u2014)/:.,&])")
+
+
+def display_name(s):
+    """The name to show a person. Never use it to look anything up."""
+    t = (s or "").strip()
+    if not t:
+        return t
+    t = _SITE_MARK.sub(r"\1\2", t)
+    t = _EMPTY_BRACKETS.sub("", t)
+    t = _HASH_TAIL.sub("", t)
+    t = _NE_TAIL.sub("", t)
+    t = t.replace("_", " ")
+    t = _DASH_RUN.sub(" - ", t)
+    t = _SPACES.sub(" ", t).strip()
+    t = _SHOUT.sub(
+        lambda m: m.group(0) if m.group(2) in _SHOUT_OK
+        else m.group(1) + m.group(2)[0] + m.group(2)[1:].lower(), t)
+    while "((" in t:
+        t = t.replace("((", "(")
+    while "))" in t:
+        t = t.replace("))", ")")
+    return t

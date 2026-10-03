@@ -616,9 +616,9 @@ function appendHits(hits){
     // Title line: publication name + page/year badges. Second line: the PDF
     // filename, so a hit in `7.pdf` can always be traced back to the file.
     const src=h.file||'';
-    return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(h.title)}">
+    return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(prettyName(h.title))}">
       <div class="t">
-        <span>${esc(h.title)}</span>
+        <span>${esc(prettyName(h.title))}</span>
         <span class="tr">${h.year?'<span class="yr">'+h.year+'</span>':''}<span class="pg">${hasPdf?'📄 ':''}p.${esc(h.page)}</span></span>
       </div>
       ${src?`<div class="m" title="${esc(src)}">📄 ${esc(src)}</div>`:''}
@@ -1105,7 +1105,40 @@ const SEL=new Set();          // selected book paths, survives re-render + filte
 // magazine filed as "165.pdf" shows its publication name instead -- sorting on
 // the raw title put those 286 rows under "001".."286" while the list on screen
 // read "Popular Woodworking ...", which is what made the order look scrambled.
-function bookName(x){ return (x.pub||x.title||'').trim(); }
+// A file name is something a person typed, not something they designed: "_"
+// where a space belongs, a "-ne" left by whatever chopped the title short, a
+// "vk_com" watermark from the site the file came off. Those are removed for
+// display only - the file on disk, the index row and every search key keep the
+// original. Words that were run together with no separator at all ("1902Modern
+// Carpentry") are left alone: splitting those needs a dictionary and guesses
+// wrong more often than it helps.
+const SHOUT_OK=/^(USA|UK|EU|PDF|DVD|CD|CNC|3D|TAO|ISBN|EST|USSR)$/;
+function prettyName(s){
+  let t=String(s||'').trim();
+  if(!t) return t;
+  // download-site marks. The separators either side are kept (as $1$2) so the
+  // words around the mark stay apart; only the mark itself goes. A \b cannot
+  // be used for the left edge: "_" is a word character, so "_vk_com" has no
+  // boundary there and the pattern would silently never fire.
+  t=t.replace(/(^|[\s_(\[])(?:vk[_ .-]?com[_ .-]?en(?:glishmagazines)?|englishmagazines?|pdfdrive|libgen|annas-?archive|vk[_ .-]?com(?:[_ .-]?en)?)([\s_)\]]*)/gi,'$1$2')
+     .replace(/\(\s*\)|\[\s*\]|\{\s*\}/g,'');   // brackets the mark left empty
+  // "{3D1EA16D}" is a hash a downloader added to make the name unique. Six hex
+  // digits minimum, so a real {id} in a title is left alone.
+  t=t.replace(/\s*\{[0-9a-f]{6,}\}$/i,'');
+  // "-ne" is an abbreviation of the words the chopper removed
+  t=t.replace(/[-_]ne(?:[_ .-]?en)?\b[\s.-]*$/i,'');
+  t=t.replace(/_/g,' ');                        // underscores are spaces
+  t=t.replace(/\s*[-–—]\s*[-–—]\s*/g,' - ');   // runs of dashes -> one
+  t=t.replace(/\s{2,}/g,' ').trim();
+  // SHOUTING words, except the acronyms that are meant to be shouted
+  t=t.replace(/(^|[\s\-–—(/&])([A-Z]{4,})(?=$|[\s\-–—)/:.,&])/g,
+              (m,p,w)=>SHOUT_OK.test(w)?p+w:p+w[0]+w.slice(1).toLowerCase());
+  // A doubled bracket is a typo, not part of the title: "The Pocket Hole
+  // Drilling Jig ((Danny Proulx)" arrives that way from the file name.
+  t=t.replace(/\((?=\()/g,'').replace(/\)(?=\))/g,'');
+  return t;
+}
+function bookName(x){ return prettyName(x.pub||x.title||''); }
 
 // Alphabetical order that reads like the list: digit runs compare as numbers,
 // so "No. 9" comes before "No. 10" and "No. 209" lands in the 200s instead of
@@ -1236,8 +1269,8 @@ function bookSubline(x){
     // the filename stem. The PDF filename goes underneath either way so a row
     // can always be traced back to the file on disk - it is shown next to the
     // status detail, not instead of it.
-    const shown=(x.pub||x.title||'').trim().toLowerCase();
-    const same=stem.trim().toLowerCase()===shown;
+    const shown=bookName(x).toLowerCase();
+    const same=prettyName(stem).toLowerCase()===shown;
     const bits=[];
     if(!x.exists)bits.push('file missing');
     if(!same)bits.push(fn);
@@ -1279,8 +1312,8 @@ function renderBooks(){
   $('#jobs').innerHTML=rows.map((x,i)=>`<tr>
     <td><input type="checkbox" class="bSel" data-sel="${esc(x.file)}"${SEL.has(x.file)?' checked':''}></td>
     <td>${x.exists&&/[^\\/]$/i.test(x.file)&&x.indexed_pages
-        ?`<a class="bk-title" href="/rawfile?path=${encodeURIComponent(x.file)}" target="_blank" rel="noopener" title="Open ${esc(x.file)} in a new tab">${esc(x.pub||x.title)}</a>`
-        :`<span class="bk-title">${esc(x.pub||x.title)}</span>`}${x.dup?`<span class="badge-dup" title="${esc(x.dup_paths.join('\n'))}">×${x.dup+1} indexed</span>`:''}${x.copies&&!x.dup_of?`<span class="badge-dup" title="${esc(x.dup_files.join('\n'))}">×${x.copies} files</span>`:''}${x.dup_of?`<span class="badge-dup" title="${esc(x.file)}">copy of “${esc(x.dup_of.slice(0,30))}”</span>`:''}
+        ?`<a class="bk-title" href="/rawfile?path=${encodeURIComponent(x.file)}" target="_blank" rel="noopener" title="Open ${esc(x.file)} in a new tab">${esc(bookName(x))}</a>`
+        :`<span class="bk-title">${esc(bookName(x))}</span>`}${x.dup?`<span class="badge-dup" title="${esc(x.dup_paths.join('\n'))}">×${x.dup+1} indexed</span>`:''}${x.copies&&!x.dup_of?`<span class="badge-dup" title="${esc(x.dup_files.join('\n'))}">×${x.copies} files</span>`:''}${x.dup_of?`<span class="badge-dup" title="${esc(x.file)}">copy of “${esc(x.dup_of.slice(0,30))}”</span>`:''}
       ${bookSubline(x)}</td>
     <td>${x.year?String(x.year):'—'}</td>
     <td>${x.pages?`${(x.indexed_pages||0).toLocaleString()}/${x.pages.toLocaleString()}`:'—'}</td>

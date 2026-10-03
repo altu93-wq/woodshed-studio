@@ -384,7 +384,13 @@ def books_payload():
             size, mtime, exists = 0, 0, False
         if not exists and st != "duplicate":
             st = "missing"           # index row survives, the PDF does not
-        rows.append({"title": canon[1], "file": canon[2], "exists": exists,
+        # `title` in this payload is a DISPLAY name: it goes through
+        # titles.display_name so the list reads like the search results. The
+        # exact stored title is not needed by anything downstream - `file` and
+        # `pdf_name` carry the real name for tracing back to the PDF - and the
+        # job lookup above matches on the raw title, before this.
+        rows.append({"title": titles.display_name(canon[1]),
+                     "file": canon[2], "exists": exists,
                      "pages": canon[3], "indexed_pages": canon[4],
                      "status": st, "detail": job[1] if job else "",
                      "chars": canon[5], "size": size, "mtime": mtime,
@@ -393,8 +399,10 @@ def books_payload():
                      # `pub` is the publication name resolved at ingest time
                      # (a magazine issue stored as `7.pdf`); it is None when
                      # the filename already named the book, and the Book
-                     # column then shows `title` unchanged.
-                     "pub": (pm.get(nk) or (None, None))[0],
+                     # column then shows `title`. Both are display names by
+                     # the time they leave here - see the note on `title`.
+                     "pub": titles.display_name(
+                         (pm.get(nk) or (None, None))[0]),
                      "pub_src": (pm.get(nk) or (None, None))[1],
                      # `file` is the full path and is used by the delete /
                      # re-index endpoints; the filename for display is its own key.
@@ -419,7 +427,7 @@ def books_payload():
             size, mtime = s.st_size, s.st_mtime
         except OSError:
             size, mtime = 0, 0
-        rows.append({"title": title, "file": fpath, "exists": True,
+        rows.append({"title": titles.display_name(title), "file": fpath, "exists": True,
                      "pages": 0, "indexed_pages": 0,
                      "status": st, "detail": job[1] if job else "",
                      "chars": 0, "size": size, "mtime": mtime, "year": None,
@@ -427,8 +435,8 @@ def books_payload():
                      # Not indexed yet, so there is no stored pub to read.
                      # The folder rule is cheap and exact enough to preview
                      # what the name will be once it is.
-                     "pub": titles.from_folder(
-                         ingest.collection_for(fpath)),
+                     "pub": titles.display_name(titles.from_folder(
+                         ingest.collection_for(fpath))),
                      "pub_src": "folder",
                      "pdf_name": os.path.basename(fpath),
                      "collection": ingest.collection_for(fpath),

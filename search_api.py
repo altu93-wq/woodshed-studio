@@ -3,7 +3,7 @@
 Fully synchronized with index.db (pages, articles, pyear, fwwmap).
 """
 import os, re, json, sqlite3, itertools, math, time, threading
-import store, lexicon
+import store, lexicon, titles
 
 def _words(s):
     return re.findall(r"[0-9A-Za-z][0-9A-Za-z'\-]*", s or "")
@@ -173,11 +173,16 @@ def pub_map():
 
 
 def display_title(path, fallback):
-    """The name to show: the derived publication name, else the filename."""
+    """The name to show: the derived publication name, else the filename.
+
+    Both go through `titles.display_name()` so a hit reads the same as the book
+    row it came from. It is a display transform only - the stored title, the
+    file path and the FTS key are untouched.
+    """
     hit = pub_map().get(os.path.normcase(os.path.abspath(path or "")))
     if hit and hit[0]:
-        return hit[0], hit[1]
-    return fallback, ("keep" if fallback else "fallback")
+        return titles.display_name(hit[0]), hit[1]
+    return titles.display_name(fallback), ("keep" if fallback else "fallback")
 
 
 def _fetch_rows(c, rowids):
@@ -411,7 +416,8 @@ def api_search(q="", allw="", phrase="", anyw="", none="", coll="",
     hits = []
     for rid, t, cl, pg, path, yy, fmp, sn in rows:
         pub, psrc = display_title(fmp or path, t)
-        hits.append({"id": rid, "title": pub or t, "file_title": t,
+        hits.append({"id": rid, "title": pub or titles.display_name(t),
+                     "file_title": t,
                      "pub_src": psrc,
                      "file": os.path.basename(fmp or path or ""),
                      "collection": cl, "page": pg,
