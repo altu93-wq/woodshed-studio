@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=2">
+<title>PDF Viewer</title>
+<style>
+html,body{margin:0;height:100%;background:#1b1c1e;color:#e7e8ea}
+canvas{display:block;margin:12px auto;box-shadow:0 4px 18px rgba(0,0,0,.6);border-radius:4px;touch-action:pan-y}
+#bar{position:sticky;top:0;background:#141518;color:#ddd;
+font:13px/1.4 "Segoe UI",system-ui,-apple-system,sans-serif;padding:8px 12px;display:flex;gap:8px;align-items:center;
+flex-wrap:wrap;z-index:5;border-bottom:1px solid #2f3135}
+button, .btn{background:#232428;border:1px solid #36393e;color:#ddd;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;user-select:none;text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-family:inherit}
+button:hover, .btn:hover{border-color:#7fa8d0;color:#fff}
+#wrap{position:relative;text-align:center;padding-bottom:30px}
+#ext{color:#8bc3b6;font-size:12px}
+#info{font-size:12.5px;color:#9a9da3;padding:0 6px;min-width:70px;text-align:center}
+@media(max-width:600px){
+  #bar{gap:6px;padding:6px 8px}
+  button, .btn{padding:5px 9px;font-size:12px}
+  #info{font-size:11.5px;padding:0 2px;min-width:auto}
+}
+</style></head><body>
+<div id="bar">
+  <button id="prev" title="Previous page (or swipe right)">&#9664; Prev</button>
+  <span id="info">…</span>
+  <button id="next" title="Next page (or swipe left)">Next &#9654;</button>
+  <button id="zin" title="Zoom in">+</button>
+  <button id="zout" title="Zoom out">−</button>
+  <button id="fitw" title="Fit width">⤢ Fit</button>
+  <button id="full" title="Toggle full window" style="display:none">⛶ Full</button>
+  <a id="rawlink" class="btn" target="_blank" title="Open or download raw PDF file">↗ Raw PDF</a>
+  <button id="openext" title="Open PDF in default app on host PC">Open in Adobe</button>
+  <span id="ext"></span>
+</div>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<script src="/vendor/pdf.min.js"></script>
+<script>
+const q=new URLSearchParams(location.search);
+const id=q.get('id')||'0';
+let page=parseInt(q.get('page')||'1',10), scale=1.5, pdf=null, fit=true;
+pdfjsLib.GlobalWorkerOptions.workerSrc='/vendor/pdf.worker.min.js';
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+
+if(window.self!==window.top){
+  document.getElementById('full').style.display='inline-flex';
+}
+
+function fitScale(pg){
+  const w=pg.getViewport({scale:1}).width;
+  const avail=Math.max(280,(window.innerWidth||800)-20);
+  return Math.max(.35,Math.min(4,avail/w));
+}
+
+async function render(){
+  if(!pdf){
+    document.getElementById('info').textContent='Loading…';
+    pdf=await pdfjsLib.getDocument('/pdf?id='+id).promise;
+  }
+  page=Math.max(1,Math.min(pdf.numPages,page));
+  const pg=await pdf.getPage(page);
+  if(fit)scale=fitScale(pg);
+  // Render at device pixels, then present at CSS pixels. Sizing the canvas
+  // backing store in CSS pixels alone made the browser upscale a soft image,
+  // which is why this viewer looked lower-resolution than the same PDF opened
+  // natively.
+  const dpr=Math.min(window.devicePixelRatio||1,3);
+  const vp=pg.getViewport({scale});
+  cv.width=Math.round(vp.width*dpr);
+  cv.height=Math.round(vp.height*dpr);
+  cv.style.width=vp.width+'px';
+  cv.style.height=vp.height+'px';
+  await pg.render({canvasContext:ctx,viewport:pg.getViewport({scale:scale*dpr})}).promise;
+  document.getElementById('info').textContent='p.'+page+' / '+pdf.numPages;
+  document.getElementById('rawlink').href='/pdf?id='+id+'#page='+page;
+}
+
+document.getElementById('prev').onclick=()=>{if(page>1){page--;render();}};
+document.getElementById('next').onclick=()=>{if(pdf&&page<pdf.numPages){page++;render();}};
+document.getElementById('zin').onclick=()=>{fit=false;scale=Math.min(6,scale+.25);render();};
+document.getElementById('zout').onclick=()=>{fit=false;scale=Math.max(.35,scale-.25);render();};
+document.getElementById('fitw').onclick=()=>{fit=true;render();};
+window.addEventListener('resize',()=>{if(fit)render();});
+
+// Touch swipe gestures for mobile
+let touchStartX=0, touchStartY=0;
+document.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){
+    touchStartX=e.touches[0].clientX;
+    touchStartY=e.touches[0].clientY;
+  }
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!touchStartX||!e.changedTouches.length)return;
+  const dx=e.changedTouches[0].clientX-touchStartX;
+  const dy=e.changedTouches[0].clientY-touchStartY;
+  touchStartX=0;touchStartY=0;
+  if(Math.abs(dx)>60 && Math.abs(dy)<50){
+    if(dx<0 && pdf && page<pdf.numPages){page++;render();}
+    else if(dx>0 && page>1){page--;render();}
+  }
+},{passive:true});
+
+// Keyboard left/right arrows
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'){if(pdf&&page<pdf.numPages){page++;render();}}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){if(page>1){page--;render();}}
+});
+
+document.getElementById('full').onclick=()=>{
+  const m=parent.document.querySelector('main');
+  if(!m)return;
+  m.classList.toggle('full');
+  const on=m.classList.contains('full');
+  document.getElementById('full').textContent=on?'⤡ Split':'⛶ Full';
+  setTimeout(()=>{if(fit)render();},80);
+};
+
+document.getElementById('openext').onclick=async()=>{
+  const ext=document.getElementById('ext');ext.textContent='opening…';
+  try{
+    const r=await fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id})});
+    const d=await r.json();
+    ext.textContent=d.ok?'opened in desktop app ✓':(d.error||'failed');
+  }catch(e){ext.textContent='failed';}
+  setTimeout(()=>{ext.textContent='';},4000);
+};
+
+render();
+</script></body></html>

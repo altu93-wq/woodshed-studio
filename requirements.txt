@@ -1,0 +1,34 @@
+# Woodshed Studio — runtime dependencies
+#
+#   py -3 -m pip install -r requirements.txt
+#
+# Everything else is the Python standard library: http.server, sqlite3,
+# sqlite3's FTS5, queue, threading. There is no web framework and no build
+# step; the HTML is served as-is.
+
+# PDF text extraction. Required — without it nothing can be indexed.
+pymupdf>=1.24
+
+# Watches the drop folder so a copied PDF indexes on its own.
+watchdog>=4.0
+
+# --- semantic search (vectors.py) -------------------------------------------
+# fastembed runs the embedding model on ONNX Runtime. numpy does the cosine
+# search over the stored matrix. Both are needed for hybrid ranking; without
+# them the app still runs and falls back to keyword-only search.
+fastembed>=0.4
+numpy>=1.24
+
+# --- OCR (ocr_worker.py) ----------------------------------------------------
+# Optional. Scanned books are detected as `image-only` either way; install this
+# to unlock the OCR button.
+# rapidocr-onnxruntime>=1.2
+
+# --- GPU acceleration -------------------------------------------------------
+# Optional, and install this INSTEAD of onnxruntime if you have an NVIDIA GPU:
+#   py -3 -m pip uninstall onnxruntime
+#   py -3 -m pip install onnxruntime-gpu
+# With the CPU build, onnxruntime prints a few harmless CUDA warnings and falls
+# back to CPU - it does not crash. Force the CPU with WOOD_OCR_PROVIDERS=CPU
+# and WOOD_EMBED_PROVIDERS=CPU if you want silence.
+# onnxruntime-gpu>=1.17

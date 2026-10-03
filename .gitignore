@@ -1,0 +1,33 @@
+# The library index and everything derived from it. This is the user's data,
+# never source: index.db alone reaches half a gigabyte on a real library.
+# It lives beside the app (<library>/_index/index.db), not inside it, but these
+# patterns keep a stray copy out of a commit either way.
+index.db
+index.db-*
+*.db
+*.db.bak-*
+# SQLite's side files. These are NOT matched by `*.db` (they end in -wal/-shm),
+# and a copy of the index under any other name would otherwise be committed:
+# a -wal without its database is a corrupt, meaningless blob.
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Page embeddings, rebuilt with `py -3 studio.py embed`. The concept layer
+# (concepts.npz / concepts.json) lives in the same per-library folder now; they
+# stay listed here as well so a copy left in the app folder by an older install
+# is still ignored.
+vectors/
+concepts.npz
+concepts.json
+
+# Machine-specific paths written by `studio.py paths --root ...`.
+config.json
+
+# Runtime output.
+logs/
+__pycache__/
+*.py[cod]
+
+# Scratch output from the year-repair tooling.
+yearfix_changes.csv

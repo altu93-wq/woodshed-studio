@@ -1,0 +1,15 @@
+{
+  "_comment": "Copy to config.json and edit, or set WOOD_ROOT / WOOD_INDEX_DB / WOOD_INBOX / WOOD_TRASH instead. Any key you leave out falls back to the default shown next to it. Run `py -3 studio.py where` to see what resolved.",
+
+  "library_root": "D:\\MyBooks",
+  "_library_root": "folder that holds your PDF folders. Default: this app's parent, if it contains an _index folder.",
+
+  "index_db": "D:\\MyBooks\\_index\\index.db",
+  "_index_db": "the SQLite index. Default: <library_root>/_index/index.db. Created on first run.",
+
+  "inbox": "D:\\MyBooks\\new books",
+  "_inbox": "drop folder for new PDFs. Default: <library_root>/new books. Created on first run.",
+
+  "trash": "D:\\MyBooks\\_trash",
+  "_trash": "where a deleted PDF is moved instead of being erased. Default: <library_root>/_trash."
+}

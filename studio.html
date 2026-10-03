@@ -1,0 +1,1482 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Woodshed Studio</title>
+<style>
+:root{--bg:#17181a;--panel:#1f2023;--ink:#e7e8ea;--dim:#9a9da3;--line:#2f3135;
+--accent:#7fa8d0;--accent2:#8bc3b6;--mark:#d8c37c;--bad:#d08a8a;--field:#131417;--active:#28303a}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14.5px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif;
+display:flex;flex-direction:column;overflow:hidden}
+header{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0}
+.hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:16px;margin:0;white-space:nowrap;display:flex;align-items:center;gap:6px}
+h1 span{color:var(--accent)}
+/* the wordmark doubles as the home button */
+.home{font:inherit;font-size:16px;display:flex;align-items:center;gap:6px;cursor:pointer;
+      background:none;border:0;padding:2px 6px;margin:0;border-radius:7px;color:var(--text);
+      white-space:nowrap}
+.home:hover{background:var(--field)}
+.home:active{transform:translateY(1px)}
+.badge{font-size:10.5px;color:var(--accent2);border:1px solid var(--accent2);border-radius:10px;padding:1px 7px;font-weight:normal}
+#q{flex:1;min-width:200px;background:var(--field);border:1px solid var(--line);color:var(--ink);
+border-radius:8px;padding:9px 13px;font-size:15px;outline:none}
+#q:focus{border-color:var(--accent)}
+select,input[type=number]{background:var(--field);border:1px solid var(--line);color:var(--ink);
+border-radius:8px;padding:8px 10px;font-size:13px;outline:none}
+.lnk{color:var(--dim);font-size:13px;cursor:pointer;white-space:nowrap;user-select:none}
+.lnk:hover{color:var(--accent)}
+
+/* Tab switcher */
+.tabs{display:inline-flex;gap:4px;background:var(--field);padding:3px;border-radius:8px;border:1px solid var(--line)}
+.tabs button{background:transparent;border:none;color:var(--dim);border-radius:6px;
+padding:6px 12px;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{background:var(--panel);color:var(--accent);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+
+/* Mobile navigation bar */
+#mobnav{display:none;background:var(--panel);border-bottom:1px solid var(--line);padding:6px 10px;gap:6px;overflow-x:auto}
+#mobnav button{background:var(--field);border:1px solid var(--line);color:var(--dim);border-radius:6px;
+padding:6px 12px;font-size:12.5px;white-space:nowrap;cursor:pointer}
+#mobnav button.on{background:var(--active);border-color:var(--accent);color:var(--accent);font-weight:600}
+
+#adv{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);
+grid-template-columns:repeat(4,1fr);gap:9px 14px;align-items:end}
+#adv.show{display:grid}
+#adv label{display:block;font-size:11px;color:var(--dim);margin-bottom:3px;letter-spacing:.03em}
+#adv input{width:100%;background:var(--field);border:1px solid var(--line);color:var(--ink);
+border-radius:8px;padding:8px 10px;font-size:13px;outline:none}
+#adv .yr{display:flex;gap:6px}#adv .yr input{width:70px}
+.cheat{grid-column:1/-1;color:var(--dim);font-size:12px}
+.cheat code{background:var(--field);padding:1px 6px;border-radius:5px;color:var(--accent)}
+
+main{flex:1;display:flex;min-height:0}
+main.full #left{display:none}
+
+/* Left panel: Search & Results */
+#left{flex:1.35;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+#rhdr{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+gap:10px;flex-wrap:wrap;font-size:13px}
+#rhdr b{color:var(--accent)}
+.facets{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 0}
+.fac{font-size:11.5px;color:var(--dim);background:var(--field);border:1px solid var(--line);
+border-radius:14px;padding:3px 10px;cursor:pointer;user-select:none}
+.fac:hover{border-color:var(--accent)}.fac.on{border-color:var(--accent);color:var(--accent);background:var(--active)}
+#results{flex:1;overflow:auto;padding:6px 12px 20px}
+.hit{padding:11px 14px;border-radius:9px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
+.hit:hover{background:#232529;border-color:var(--line)}
+.hit .t{font-size:14px;color:var(--ink);font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.hit .m{font-size:11.5px;color:var(--dim);margin:2px 0 5px}
+.hit .m .yr{color:var(--accent2);font-weight:600}
+.hit .s{font-size:13px;color:#c2c4c8;line-height:1.45}
+.hit mark{background:transparent;color:var(--mark);font-weight:700}
+.hit .pg{color:var(--accent2);font-size:11.5px;white-space:nowrap;padding:1px 7px;background:var(--field);border-radius:6px;border:1px solid var(--line)}
+.hit-actions{margin-top:7px;display:flex;gap:8px;font-size:12px}
+.hit-btn{color:var(--accent);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:3px 9px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.hit-btn:hover{background:var(--active);border-color:var(--accent)}
+#more{text-align:center;color:var(--dim);font-size:12.5px;padding:14px}
+.empty{color:var(--dim);padding:34px 16px;text-align:center;font-size:13.5px}
+
+/* Right panel: Tabbed Views */
+#right{flex:1.2;display:flex;flex-direction:column;min-width:0;background:var(--panel);position:relative}
+main.full #right{flex:1}
+.rview{position:absolute;inset:0;display:none;flex-direction:column;min-height:0;overflow:hidden}
+.rview.active{display:flex}
+
+/* Graph View */
+#graphwrap{flex:1;position:relative;min-height:0}
+#graph{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#graphwrap.drag #graph{cursor:grabbing}
+#gcap{position:absolute;left:12px;top:10px;color:var(--dim);font-size:11.5px;pointer-events:none;
+max-width:calc(100% - 66px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#back{position:absolute;left:12px;top:32px;display:none;align-items:center;gap:5px;
+background:#131417d8;border:1px solid var(--line);color:var(--ink);border-radius:8px;
+padding:5px 11px;font-size:12.5px;cursor:pointer;z-index:2}
+#back:hover{border-color:var(--accent);color:var(--accent)}
+#gzoom{position:absolute;right:12px;top:10px;display:flex;flex-direction:column;gap:5px;z-index:2}
+#gzoom button{width:34px;height:34px;background:#131417d8;border:1px solid var(--line);
+color:var(--dim);border-radius:8px;font-size:16px;line-height:1;cursor:pointer;font-family:inherit}
+#gzoom button:hover{border-color:var(--accent);color:var(--accent)}
+#relbar{border-top:1px solid var(--line);padding:10px 14px;max-height:36%;overflow:auto;flex-shrink:0}
+h4{margin:0 0 7px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.chip{display:inline-block;background:#26282c;border:1px solid var(--line);border-radius:15px;
+padding:3px 10px;margin:3px 4px 3px 0;font-size:12px;cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--accent);color:var(--accent)}.chip b{color:var(--accent)}
+#rtsrc{color:var(--dim);font-size:10.5px;margin-top:5px;letter-spacing:.02em}
+
+/* Reader View */
+#viewwrap{flex:1;position:relative;display:flex;flex-direction:column;min-height:0}
+#view{width:100%;height:100%;border:none;flex:1}
+#vempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+color:var(--dim);font-size:13.5px;text-align:center;padding:20px;background:var(--panel)}
+
+/* Add books & OCR View */
+#qtab{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px;overflow:hidden}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:12px 16px;text-align:center;
+color:var(--dim);font-size:12.5px;margin-bottom:10px;background:var(--field);transition:border-color .2s;flex-shrink:0;
+display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+#drop.over{border-color:var(--accent);color:var(--accent);background:var(--active)}
+.drop-btns{margin-top:0;display:flex;justify-content:center;gap:10px}
+.browse{margin-top:0;flex-shrink:0}
+#qtabScroll{flex:1;min-height:0;overflow:auto;margin-top:10px;border:1px solid var(--line);border-radius:8px}
+table.mini{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;margin-top:0}
+table.mini th{position:sticky;top:0;z-index:2;background:var(--panel);cursor:pointer;
+user-select:none;padding:9px 8px;text-align:left;color:var(--dim);font-weight:600;
+font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+border-bottom:1px solid var(--line);white-space:nowrap}
+table.mini th:hover{color:var(--accent)}
+table.mini th .arrow{color:var(--accent);margin-left:4px;font-size:10px}
+/* checkbox · Book · Year · Pages · Status · Modified · Actions */
+table.mini th:nth-child(1),table.mini td:nth-child(1){width:24px;padding:6px 2px 6px 8px}
+table.mini th:nth-child(1) input,table.mini td:nth-child(1) input{margin:0;vertical-align:middle}
+table.mini th:nth-child(2),table.mini td:nth-child(2){width:31%}
+table.mini th:nth-child(3),table.mini td:nth-child(3){width:6%}
+table.mini th:nth-child(4),table.mini td:nth-child(4){width:9%}
+table.mini th:nth-child(5),table.mini td:nth-child(5){width:11%}
+table.mini th:nth-child(6),table.mini td:nth-child(6){width:10%}
+table.mini th:nth-child(7),table.mini td:nth-child(7){width:18%}
+table.mini td{overflow-wrap:anywhere;vertical-align:top;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.mini td:nth-child(6){white-space:nowrap}
+table.mini td:nth-child(3){white-space:nowrap}
+table.mini td:nth-child(3),table.mini td:nth-child(6){white-space:nowrap}
+.folder{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+white-space:nowrap;vertical-align:bottom;color:var(--accent2)}
+table.mini tbody tr:hover{background:var(--field)}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;flex-shrink:0}
+.filters input,.filters select{background:var(--field);border:1px solid var(--line);color:var(--ink);
+border-radius:7px;padding:6px 9px;font-size:12.5px;font-family:inherit}
+.filters input{min-width:190px}
+.filters input:focus,.filters select:focus{outline:none;border-color:var(--accent)}
+.st{border-radius:10px;padding:2px 8px;font-size:11px;white-space:nowrap;font-weight:600}
+.st-done{background:#1d2b26;color:var(--accent2)}
+.st-image-only{background:#2b2519;color:var(--mark)}
+.st-queued,.st-extracting,.st-indexing,.st-ocr-running{background:#222b36;color:var(--accent)}
+.st-failed{background:#2e1f1f;color:var(--bad)}
+/* ---- Button scale: one base, three weights, two sizes -------------------
+   .act            default (table rows, secondary)
+   .act.md         toolbar buttons
+   .act.big        the one primary action in a group
+   .act.subtle     borderless, for low-stakes controls
+   .act.danger     destructive, outlined in the warning colour
+   Without this every button had the same visual weight, so the primary
+   action in a row was indistinguishable from "Reset".                      */
+button.act{background:var(--field);border:1px solid var(--line);color:var(--ink);
+border-radius:7px;padding:5px 11px;font-size:12.5px;cursor:pointer;margin:2px 4px 2px 0;
+font-family:inherit;white-space:nowrap;transition:border-color .12s,color .12s,background .12s}
+button.act:hover{border-color:var(--accent);color:var(--accent)}
+button.act.md{padding:7px 14px;font-size:13px}
+button.act.big{font-weight:600;color:var(--accent);border-color:var(--accent)}
+button.act.subtle{background:transparent;border-color:transparent;color:var(--dim)}
+button.act.subtle:hover{background:var(--field);border-color:var(--line);color:var(--accent)}
+button.act.danger{color:var(--bad);border-color:#4a3234}
+button.act.danger:hover{border-color:var(--bad);background:#2a1e1f;color:var(--bad)}
+td.actions .act{padding:3px 8px;font-size:11.5px;margin:1px 3px 1px 0}
+td.actions .act.danger{color:var(--bad);border-color:#3f2b2d;background:transparent}
+td.actions .act.danger:hover{background:#2a1e1f;border-color:var(--bad)}
+button.act[disabled]{opacity:.45;cursor:default}
+button.act.busy{color:transparent;pointer-events:none;position:relative}
+button.act.busy::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;
+margin:-6px 0 0 -6px;border:2px solid var(--line);border-top-color:var(--accent);
+border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.st-indexed,.st-ocr,.st-done,.st-imported-from-db{background:#1d2b26;color:var(--accent2)}
+.st-not-indexed,.st-idle{background:#2b2519;color:var(--mark)}
+.st-missing,.st-duplicate,.st-failed{background:#2e1f1f;color:var(--bad)}
+.rowbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rowbar+.rowbar,.rowbar+.filters{margin-top:8px}
+/* the bulk bar is an action on the current selection: tint it so it reads as
+   a separate concern from the always-available toolbar above it */
+#bulkbar{background:var(--active);border:1px solid #35404d;border-radius:9px;padding:7px 9px}
+#bulkbar .hint{font-weight:600;color:var(--accent2)}
+.bk-title{font-weight:600;font-size:13px}
+/* the title opens the book in the browser's own PDF viewer, in a new tab */
+a.bk-title{color:inherit;text-decoration:none;display:inline;border-bottom:1px solid transparent}
+a.bk-title:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.bk-sub{color:var(--dim);font-size:11px;display:block;margin-top:2px;line-height:1.35}
+.badge-dup{background:#2e1f1f;color:var(--bad);border-radius:9px;padding:1px 7px;
+font-size:10.5px;font-weight:700;margin-left:6px;white-space:nowrap;vertical-align:1px}
+td.actions{white-space:nowrap;text-align:right}
+#toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:200;pointer-events:none}
+/* three-way delete dialog: cancel / index only / index + file */
+.ask-back{position:fixed;inset:0;background:rgba(10,11,13,.72);display:none;
+align-items:center;justify-content:center;z-index:300;padding:18px}
+.ask-back.show{display:flex}
+.ask-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+padding:18px 20px;max-width:440px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.ask-box h3{margin:0 0 8px;font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.ask-box p{margin:0 0 8px;color:var(--dim);font-size:13px}
+.ask-file{font-size:11.5px;overflow-wrap:anywhere;font-family:Consolas,Menlo,monospace}
+.ask-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ask-btns .act{margin:0;flex:1 1 auto}
+.toast{background:var(--field);border:1px solid var(--accent);color:var(--ink);border-radius:8px;
+padding:9px 13px;font-size:12.5px;box-shadow:0 8px 26px rgba(0,0,0,.5);max-width:360px;animation:tin .18s ease}
+.toast.bad{border-color:var(--bad)}
+.toast.good{border-color:var(--accent2)}
+@keyframes tin{from{transform:translateY(8px);opacity:0}}
+
+/* Health View */
+#healthtab{flex:1;overflow:auto;padding:16px}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.kpi{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12.5px}
+.kpi b{color:var(--accent);font-size:16px;display:block}
+.tagSem{background:var(--field);border:1px solid var(--line);border-radius:5px;
+  padding:1px 6px;font-size:11px;color:var(--accent);vertical-align:2px}
+.kpi.warn b{color:var(--mark)}
+.kpi.bad b{color:var(--bad)}
+.bar{height:9px;background:var(--field);border:1px solid var(--line);border-radius:5px;
+overflow:hidden;margin-top:7px;width:220px;max-width:100%}
+.bar>i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.bar>i.warn{background:var(--mark)}
+.cover{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:8px 14px;
+font-size:12.5px;flex:0 0 auto;width:250px;max-width:100%;align-self:stretch;
+display:flex;flex-direction:column;justify-content:center}
+.cover b{font-weight:600;display:block}
+.cover .covnum{color:var(--accent);font-size:20px;font-weight:700;line-height:1.15;display:block}
+.cover .hint{margin:0 0 6px}
+#log{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:12px;font:11.5px/1.6 Consolas,Menlo,monospace;
+color:#9fa3aa;height:340px;overflow:auto;white-space:pre-wrap;margin-top:10px}
+.hint{color:var(--dim);font-size:12px;margin-top:6px}
+/* small uppercase eyebrow used to label a group of controls */
+.eyebrow{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:600}
+
+/* Text Reader Modal */
+#reader{position:fixed;inset:0;background:rgba(13,14,16,.96);display:none;flex-direction:column;z-index:99}
+#reader.show{display:flex}
+#rh2{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+#rh2 .x{margin-left:auto;cursor:pointer;color:var(--dim);font-size:22px;padding:2px 8px}
+#rbody{flex:1;overflow:auto;padding:20px 26px;white-space:pre-wrap;font-size:14px;color:#cdd0d4;max-width:840px;margin:0 auto;width:100%}
+
+@media(max-width:900px){
+  #mobnav{display:flex}
+  .tabs.desktabs{display:none}
+  main{flex-direction:column}
+  #left{flex:none;height:100%;border-right:none;display:flex}
+  #right{flex:none;height:100%;display:none}
+  /* In mobile, toggle view between left (results) and right tabs */
+  body.show-mob-panel #left{display:none}
+  body.show-mob-panel #right{display:flex}
+  #adv.show{grid-template-columns:1fr 1fr}
+
+  /* The fixed chrome used to eat half the screen: wordmark + search + Advanced
+     + Sort stacked into four rows before any content started. Compact it to
+     two rows and push the rest into the flow. */
+  header{padding:7px 10px}
+  .hrow{gap:7px}
+  .home{order:1;font-size:14px;padding:2px 4px;flex:0 0 auto}
+  .home .badge{display:none}
+  /* row 1: wordmark + search, row 2: Sort + Advanced. Sort used to float to
+     the far right of row 1 where it ran off the edge. */
+  #q{order:1;flex:1 1 120px;min-width:0;font-size:16px;padding:8px 12px} /* 16px stops iOS auto-zoom */
+  .sortwrap{order:2;font-size:0;margin-left:auto}   /* keep the select, drop the word */
+  .sortwrap select{font-size:13px;padding:7px 9px}
+  #advtoggle{order:3}
+  #mobnav{padding:5px 8px;flex-wrap:nowrap;scrollbar-width:none}
+  #mobnav::-webkit-scrollbar{display:none}
+  #mobnav button{padding:7px 11px;font-size:12px;flex:0 0 auto}
+
+  /* Add & OCR: the chrome above the table used to eat the screen. Collapse the
+     drop zone and keep the filters on one scrollable row so the table keeps
+     its own scroll box — which is what gives it a sticky header and lets it
+     scroll sideways instead of crushing every column to one word per line. */
+  #qtab{padding:10px;overflow:hidden}
+  #drop{padding:10px;margin-bottom:8px}
+  #drop>div:first-child,#drop .hint{display:none}
+  .drop-btns{margin-top:0}
+  .filters{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .filters input{min-width:150px}
+  .filters>.eyebrow{position:sticky;left:0;background:var(--panel);z-index:1}
+  #bulkbar{flex-wrap:wrap}
+  #qtabScroll{flex:1;min-height:0;overflow:auto;margin-top:8px}
+  table.mini{min-width:660px}
+  #audit{display:none}
+
+  /* KPI row: 2 columns reads better than a long wrap of 9 chips */
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi{padding:7px 10px}
+  .cover{grid-column:1/-1;width:auto}
+  #healthtab{padding:12px}
+  #log{height:230px}
+}
+</style></head><body>
+<header>
+  <div class="hrow">
+    <button class="home" id="home" title="Back to the library home">
+      <span>🪵</span><span style="color:var(--text)">Woodshed</span> <span>Studio</span> <span class="badge">v2.0</span>
+    </button>
+    <input id="q" placeholder='Search the library…   "exact phrase"  -exclude  (Enter)' autocomplete="off">
+    <span class="lnk" id="advtoggle">Advanced ▾</span>
+    <label class="lnk sortwrap" style="cursor:default">Sort
+      <select id="sort" style="margin-left:6px">
+        <option value="relevance">Relevance</option>
+        <option value="title">Title A–Z</option>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+    </label>
+    <div class="tabs desktabs" id="desktabs">
+      <button data-t="graph" class="on">🗺️ Topic Map</button>
+      <button data-t="reader">📖 Reader</button>
+      <button data-t="add">📥 Add &amp; OCR</button>
+      <button data-t="health">🩺 Health</button>
+    </div>
+  </div>
+  <div id="adv">
+    <div><label>All these words</label><input id="f_all"></div>
+    <div><label>This exact phrase</label><input id="f_phrase"></div>
+    <div><label>Any of these words</label><input id="f_any"></div>
+    <div><label>None of these words</label><input id="f_none"></div>
+    <div><label>Year range</label><div class="yr"><input id="f_ymin" type="number" placeholder="from"><input id="f_ymax" type="number" placeholder="to"></div></div>
+    <div style="grid-column:span 2;display:flex;align-items:end">
+      <button id="dosearch" style="background:var(--accent);border:none;color:#0d1216;border-radius:8px;padding:9px 18px;font-size:13px;cursor:pointer;font-weight:600">Search</button>
+    </div>
+    <div class="cheat">Tip: in the main box use <code>"exact phrase"</code> for a phrase and <code>-word</code> to exclude. Fields combine (all AND phrase AND any) then remove the “none”.</div>
+  </div>
+</header>
+
+<div id="mobnav">
+  <button data-mob="results" class="on">🔍 Results <span id="mobcount"></span></button>
+  <button data-mob="graph">🗺️ Topic Map</button>
+  <button data-mob="reader">📖 Reader</button>
+  <button data-mob="add">📥 Add &amp; OCR</button>
+  <button data-mob="health">🩺 Health</button>
+</div>
+
+<main>
+  <section id="left">
+    <div id="rhdr">
+      <span id="rcount">Search the library to begin.</span>
+      <span id="rsort" class="lnk" style="cursor:default;margin-left:auto"></span>
+    </div>
+    <div class="facets" id="facets" style="display:none"></div>
+    <div id="results">
+      <div class="empty">Type a keyword and press Enter.<br>Use Advanced for phrases, exclusions, year and sorting.</div>
+    </div>
+  </section>
+
+  <section id="right">
+    <!-- Tab 1: Topic Map -->
+    <div class="rview active" id="view-graph">
+      <div id="graphwrap">
+        <canvas id="graph"></canvas>
+        <div id="gcap">topic map · drag to pan · scroll or pinch to zoom · tap a node to search</div>
+        <button id="back">‹ full map</button>
+        <div id="gzoom">
+          <button id="zIn" title="Zoom in">+</button>
+          <button id="zOut" title="Zoom out">−</button>
+          <button id="zFit" title="Fit the whole map">⤢</button>
+        </div>
+      </div>
+      <div id="relbar" style="display:none">
+        <h4>Related topics</h4><div id="rtopics"></div>
+        <div id="rtsrc"></div>
+        <h4 style="margin-top:10px">Top books</h4><div id="rbooks"></div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Reader -->
+    <div class="rview" id="view-reader">
+      <div id="viewwrap">
+        <div id="vempty">Search, then click a result or preview —<br>the PDF opens here at that page.</div>
+        <iframe id="view" title="reader"></iframe>
+      </div>
+    </div>
+
+    <!-- Tab 3: Add Books & OCR -->
+    <div class="rview" id="view-add">
+      <div id="qtab">
+        <div id="drop">
+          <div>Drag &amp; drop PDFs here, or click Browse to upload</div>
+          <div class="hint" style="margin-top:4px">Uploaded into the drop folder and auto-indexed · single writer protects index.db</div>
+          <div class="hint" id="dropPath" style="margin-top:2px"></div>
+          <div class="drop-btns">
+            <button class="act" onclick="$('#fileinput').click()">📁 Choose PDF Files</button>
+            <input type="file" id="fileinput" multiple accept=".pdf" style="display:none">
+          </div>
+        </div>
+        <div class="rowbar">
+          <button class="act md big" id="ocrAll">OCR all image-only</button>
+          <button class="act md" id="stopOcr">Stop</button>
+          <button class="act md subtle" id="rescan" title="Look for new PDFs in the drop folder">Rescan drop folder</button>
+          <button class="act md subtle" id="scanLib" title="Walk the whole library folder and index every PDF that is not in the index yet">Scan whole library</button>
+          <button class="act md" id="dupFix" style="display:none">Clean duplicates</button>
+          <span class="hint" id="bookSummary" style="margin:0 0 0 auto"></span>
+        </div>
+        <div class="filters">
+          <span class="eyebrow" style="margin-right:2px">Filter</span>
+          <input id="bq" type="search" placeholder="Filter by title…" autocomplete="off">
+          <select id="bStatus">
+            <option value="">All statuses</option>
+            <option value="indexed">Indexed</option>
+            <option value="image-only">Image-only (needs OCR)</option>
+            <option value="not-indexed">Not indexed</option>
+            <option value="duplicate">Merged copy</option>
+            <option value="missing">File missing</option>
+            <option value="ocr">OCR done</option>
+          </select>
+          <select id="bPages">
+            <option value="">Any page count</option>
+            <option value="0-99">Under 100 pages</option>
+            <option value="100-299">100 – 299 pages</option>
+            <option value="300-699">300 – 699 pages</option>
+            <option value="700-">700+ pages</option>
+          </select>
+          <select id="bDup">
+            <option value="">Duplicates: all</option>
+            <option value="only">Only duplicated</option>
+            <option value="none">Only clean</option>
+          </select>
+          <button class="act subtle" id="bReset">Reset</button>
+        </div>
+        <div class="rowbar" id="bulkbar" style="display:none">
+          <span class="hint" id="bulkCount" style="margin:0"></span>
+          <button class="act md" id="bulkOcr" title="Queue OCR for the selected books (they must be image-only)">OCR selected</button>
+          <button class="act md" id="bulkRe" title="Re-index the selected books from their PDFs">Re-index selected</button>
+          <button class="act md danger" id="bulkDel" title="Remove the selected books from the index. PDF files are NOT deleted.">Delete selected from index</button>
+          <button class="act md subtle" id="bulkClear">Clear selection</button>
+        </div>
+        <div id="qtabScroll">
+          <table class="mini">
+            <thead>
+              <tr>
+                <th style="width:28px;cursor:default"><input type="checkbox" id="bAll" title="Select every book the filters are showing"></th>
+                <th data-sort="title">Book</th>
+                <th data-sort="year">Year</th>
+                <th data-sort="pages">Pages</th>
+                <th data-sort="status">Status</th>
+                <th data-sort="mtime">Modified</th>
+                <th style="text-align:right;cursor:default">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="jobs"></tbody>
+          </table>
+        </div>
+        <div class="hint" id="audit"></div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Health -->
+    <div class="rview" id="view-health">
+      <div id="healthtab">
+        <div class="kpis" id="kpis"></div>
+        <div class="hint" id="prodAudit"></div>
+        <div class="hint" id="pathAudit"></div>
+        <div class="rowbar" id="embedBtns" style="display:none;margin-top:10px"></div>
+        <div class="eyebrow" style="margin:14px 0 6px">Activity log</div>
+        <div id="log"><span class="hint">Nothing has happened since the server started.</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="reader">
+  <div id="rh2">
+    <b id="rtitle"></b>
+    <span id="rsub" style="color:var(--dim);font-size:13px"></span>
+    <span class="x" onclick="closeReader()">✕</span>
+  </div>
+  <div id="rbody"></div>
+</div>
+
+<div id="ask" class="ask-back">
+  <div class="ask-box" role="dialog" aria-modal="true">
+    <h3 id="askTitle"></h3>
+    <p id="askRows"></p>
+    <p class="ask-file" id="askFile"></p>
+    <div class="ask-btns">
+      <button class="act subtle" id="askCancel">Cancel</button>
+      <button class="act" id="askIndex">Remove from index only</button>
+      <button class="act danger" id="askFileDel">Delete the PDF too</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+const $=s=>document.querySelector(s), cv=$('#graph'), ctx=cv.getContext('2d');
+const api=(u,o)=>fetch(u,o).then(r=>r.json());
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ---------------- Tabs & Navigation ---------------- */
+let currentTab='graph';
+function switchTab(t){
+  currentTab=t;
+  document.querySelectorAll('#desktabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  document.querySelectorAll('.rview').forEach(v=>v.classList.remove('active'));
+  const target=$('#view-'+t);
+  if(target)target.classList.add('active');
+  // Add & OCR and Health are full-width tools: the search panel would only
+  // squeeze the book table, so hide it for those two tabs.
+  document.querySelector('main').classList.toggle('full',t==='add'||t==='health');
+  if(t==='graph'){relayout();}
+  if(t==='add')loadJobs();
+  if(t==='health')loadHealth();
+}
+document.querySelectorAll('#desktabs button').forEach(b=>{
+  b.onclick=()=>switchTab(b.dataset.t);
+});
+
+// Home button: clear the search and go back to the topic map.
+function goHome(){
+  const q=$('#q'); q.value='';
+  if(currentTab!=='graph')switchMobileView('graph');
+  showFull();                    // drop any "related to ..." focus on the map
+  $('#view').src='about:blank'; // and the reader
+  $('#vempty').style.display='flex';
+  doSearch(true);
+  q.focus();
+}
+$('#home').onclick=goHome;
+
+// Mobile navigation
+function switchMobileView(view){
+  document.querySelectorAll('#mobnav button').forEach(b=>b.classList.toggle('on',b.dataset.mob===view));
+  if(view==='results'){
+    document.body.classList.remove('show-mob-panel');
+    // Add & OCR and Health set main.full to hide this panel. Leaving it set
+    // meant a search from either tab ran fine and then showed nothing at all.
+    document.querySelector('main').classList.remove('full');
+  } else {
+    document.body.classList.add('show-mob-panel');
+    switchTab(view);
+  }
+}
+document.querySelectorAll('#mobnav button').forEach(b=>{
+  b.onclick=()=>switchMobileView(b.dataset.mob);
+});
+
+/* ---------------- Search State ---------------- */
+const S={q:'',all:'',phrase:'',any:'',none:'',coll:'',ymin:'',ymax:'',sort:'relevance',offset:0,limit:60,total:null,loading:false,terms:[]};
+function readState(){
+  S.q=$('#q').value.trim();S.all=$('#f_all').value.trim();S.phrase=$('#f_phrase').value.trim();
+  S.any=$('#f_any').value.trim();S.none=$('#f_none').value.trim();
+  S.ymin=$('#f_ymin').value.trim();S.ymax=$('#f_ymax').value.trim();S.sort=$('#sort').value;
+}
+function qstr(){
+  const p=new URLSearchParams();
+  ['q','all','phrase','any','none','coll','ymin','ymax','sort'].forEach(k=>{if(S[k])p.set(k,S[k]);});
+  p.set('offset',S.offset);p.set('limit',S.limit);return p.toString();
+}
+function gist(){return S.q||S.all||S.phrase||S.any||'';}
+const SORTLBL={relevance:'relevance',title:'title A–Z',newest:'newest first',oldest:'oldest first'};
+
+function doSearch(reset){
+  if(S.loading)return;
+  if(reset){readState();S.offset=0;S.total=null;$('#results').innerHTML='';}
+  if(!gist()){
+    $('#results').innerHTML='<div class="empty">Enter at least one word to search.</div>';
+    $('#rcount').textContent='';$('#mobcount').textContent='';return;
+  }
+  S.loading=true;
+  $('#more')&&($('#more').textContent='Loading…');
+  // Switch to results on mobile when search is executed
+  if(window.innerWidth<=900)switchMobileView('results');
+
+  api('/api/search?'+qstr()).then(d=>{
+    S.loading=false;
+    if(d.error){$('#results').innerHTML='<div class="empty">Query error: '+esc(d.error)+'</div>';return;}
+    S.total=d.total;
+    S.terms=(d.match||'').replace(/"/g,'').replace(/ NOT /g,' ').split(/\s+/).filter(w=>w&&w!=='AND'&&w!=='OR'&&!w.startsWith('('));
+    $('#rcount').innerHTML='<b>'+d.total.toLocaleString()+'</b> page'+(d.total===1?'':'s')+
+      (d.mode==='hybrid'?' <span class="tagSem" title="Keyword (bm25) and vector results fused with Reciprocal Rank Fusion">semantic</span>':'');
+    $('#mobcount').textContent='('+d.total.toLocaleString()+')';
+    $('#rsort').textContent='sorted by '+SORTLBL[S.sort];
+    if(reset){renderFacets(d.facets);rebuildSide();}
+    appendHits(d.hits);
+    S.offset+=d.hits.length;
+    ensureMore();
+  }).catch(()=>{S.loading=false;});
+}
+
+function appendHits(hits){
+  if(S.offset===0&&!hits.length){
+    $('#results').innerHTML='<div class="empty">No pages match. Try fewer words, or remove an exclusion / year filter.</div>';
+    return;
+  }
+  const box=$('#results');
+  $('#more')&&$('#more').remove();
+  const html=hits.map(h=>{
+    const hasPdf=!!h.pdf;
+    return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(h.title)}">
+      <div class="t">
+        <span>${esc(h.title)}</span>
+        <span class="pg">${hasPdf?'📄 ':''}p.${esc(h.page)}</span>
+      </div>
+      <div class="m">${h.year?'<span class="yr">'+h.year+'</span>':''}${h.publisher?' · '+esc(h.publisher):''}</div>
+      <div class="s">${h.snippet}</div>
+      <div class="hit-actions">
+        ${hasPdf?`<a class="hit-btn" href="/viewer.html?id=${h.id}&page=${esc(h.page)}" target="_blank" onclick="event.stopPropagation()">↗ Open PDF (p.${esc(h.page)})</a>`:''}
+        <span class="hit-btn" onclick="event.stopPropagation();previewHit('${h.id}','${esc(h.page)}',${hasPdf})">📖 ${hasPdf?'Reader':'Text'}</span>
+      </div>
+    </div>`;
+  }).join('');
+  box.insertAdjacentHTML('beforeend',html);
+  box.querySelectorAll('.hit:not([data-bound])').forEach(el=>{
+    el.setAttribute('data-bound','1');
+    el.onclick=()=>openHit(el.dataset);
+  });
+  box.insertAdjacentHTML('beforeend','<div id="more"></div>');
+}
+
+function ensureMore(){
+  const m=$('#more');if(!m)return;
+  m.textContent=S.offset<S.total?'↓ scroll for more — '+(S.total-S.offset).toLocaleString()+' remaining'
+    :(S.total?'— end of '+S.total.toLocaleString()+' results —':'');
+}
+
+function renderFacets(f){
+  // The collection facet row is gone from the UI on purpose: which folder a
+  // page came from was noise. The API still accepts ?coll=, so a saved URL
+  // keeps working, but nothing renders or sets it any more.
+  const el=$('#facets');
+  if(el)el.innerHTML='';
+}
+
+$('#results').addEventListener('scroll',()=>{
+  const el=$('#results');
+  if(S.total&&S.offset<S.total&&!S.loading&&el.scrollTop+el.clientHeight>=el.scrollHeight-350)doSearch(false);
+});
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch(true);});
+$('#dosearch').onclick=()=>doSearch(true);
+$('#sort').onchange=()=>doSearch(true);
+['f_all','f_phrase','f_any','f_none','f_ymin','f_ymax'].forEach(id=>$('#'+id).addEventListener('keydown',e=>{if(e.key==='Enter')doSearch(true);}));
+$('#advtoggle').onclick=()=>{
+  $('#adv').classList.toggle('show');
+  $('#advtoggle').textContent=$('#adv').classList.contains('show')?'Advanced ▴':'Advanced ▾';
+};
+
+function previewHit(id, page, hasPdf){
+  if(hasPdf){
+    switchTab('reader');
+    if(window.innerWidth<=900)switchMobileView('reader');
+    $('#vempty').style.display='none';
+    $('#view').src='/viewer.html?id='+id+'&page='+encodeURIComponent(page);
+  } else {
+    api('/api/text?id='+id).then(d=>{
+      $('#rtitle').textContent=d.title;
+      $('#rsub').textContent='p.'+d.page;
+      $('#rbody').textContent=d.text||'(no text)';
+      $('#reader').classList.add('show');
+    });
+  }
+}
+
+function openHit(ds){
+  // On mobile, opening viewer.html in a new browser tab guarantees jumping to that page
+  if(window.innerWidth<=900 && ds.pdf==='true'){
+    window.open('/viewer.html?id='+ds.id+'&page='+encodeURIComponent(ds.pg),'_blank');
+    return;
+  }
+  previewHit(ds.id, ds.pg, ds.pdf==='true');
+}
+
+function closeReader(){$('#reader').classList.remove('show');}
+
+/* ------------- Side: Graph + Related ------------- */
+function rebuildSide(){
+  const g=gist();if(!g)return;
+  Promise.all([
+    api('/api/subgraph?q='+encodeURIComponent(g)),
+    api('/api/related?q='+encodeURIComponent(g))
+  ]).then(([sg, d])=>{
+    // Show and populate relbar first so DOM layout reflects the final canvas dimensions
+    $('#relbar').style.display='block';
+    $('#rtopics').innerHTML=(d.topics||[]).map(t=>`<span class="chip" data-q="${esc(t.name)}" title="${esc(t.name)} · NPMI ${t.score} · ${t.count} eşleşme">${esc(t.name)} <b>${t.count}</b></span>`).join('')||'<span style="color:var(--dim)">—</span>';
+    const nf=n=>(+n||0).toLocaleString('tr-TR');
+    const sem=d.semantic>0?` · ${d.semantic} semantik`:'';
+    $('#rtsrc').textContent=d.source==='library'
+      ? `Tüm kütüphane · ${nf(d.scope)} sayfa · ${nf(d.matched)} eşleşme${sem}`
+      : d.source==='articles'
+      ? `FWW editör etiketleri · ${nf(d.scope)} makale · ${nf(d.matched)} eşleşme${sem}`
+      : d.source==='concepts'
+      ? `Anlamsal kavram katmanı · ${nf(d.scope)} etiket · ${nf(d.matched)} komşu`
+      : '—';
+    $('#rbooks').innerHTML=(d.books||[]).map(b=>`<span class="chip" data-q="${esc(b.title)}">${esc(b.title.slice(0,40))} <b>${b.hits}</b></span>`).join('');
+    document.querySelectorAll('#relbar .chip').forEach(c=>c.onclick=()=>{
+      $('#q').value=c.dataset.q;doSearch(true);
+    });
+    // Load subgraph now that canvas height has stabilized
+    if(sg.nodes&&sg.nodes.length>1){
+      loadGraph(sg,'sub',sg.center);
+    }
+  });
+}
+
+/* ---------------- Graph Canvas ---------------- */
+let NODES=[],EDGES=[],adj={},view={x:0,y:0,s:1},hoverN=null,activeN=null,dragN=null,dragP=null,W=0,Hh=0,DPR=devicePixelRatio||1;
+function resize(){
+  const r=cv.parentNode.getBoundingClientRect();W=r.width;Hh=r.height;
+  if(W===0||Hh===0)return;
+  DPR=window.devicePixelRatio||1;
+  cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener('resize',()=>relayout());
+
+// The map used to lay itself out while its panel was still display:none on
+// mobile, so the canvas measured 0x0, the force sim packed every node into a
+// blob around the origin, and the later resize only re-fitted that blob. Any
+// transition from "no size" to "has size" must re-run the layout.
+function relayout(){
+  if(!NODES.length||!W||!Hh)return;
+  resize();
+  layout(MODE==='sub'?340:480);
+  clampOutliers();
+  fitView();render();
+  setGraphCaption();
+}
+
+// The short caption is chosen by canvas width, so it must follow a resize.
+function setGraphCaption(){
+  if(MODE==='sub')
+    $('#gcap').textContent=(NODES.length-1)+' topics related to “'+centerId+'”';
+  else
+    $('#gcap').textContent=W<520
+      ?'drag · pinch to zoom · tap a node'
+      :'topic map · drag to pan · scroll or pinch to zoom · tap a node to search';
+}
+let lastW=0,lastH=0;
+const graphRo=new ResizeObserver(()=>{
+  const r=cv.parentNode.getBoundingClientRect();
+  if(!r.width||!r.height)return;
+  const grew=!lastW||!lastH;
+  lastW=r.width;lastH=r.height;
+  const dpr=window.devicePixelRatio||1;
+  const tw=Math.round(r.width*dpr), th=Math.round(r.height*dpr);
+  if(cv.width!==tw||cv.height!==th)resize();
+  if(grew)relayout(); else {fitView();render();setGraphCaption();}
+});
+graphRo.observe($('#graphwrap'));
+
+function fitView(){
+  if(!NODES.length)return;
+  const cx=NODES.reduce((s,n)=>s+n.x,0)/NODES.length,cy=NODES.reduce((s,n)=>s+n.y,0)/NODES.length;
+  // clampOutliers() has already pulled strays in, so the true extent is safe
+  // to fit against; the floor stops a huge canvas zooming into a dot.
+  let R=0;
+  for(const n of NODES)R=Math.max(R,Math.hypot(n.x-cx,n.y-cy));
+  R=R||1;
+  view.s=Math.max(.3,Math.min(1.6,Math.min(W,Hh)/(2*R+90)));
+  view.x=W/2-cx*view.s;view.y=Hh/2-cy*view.s;
+}
+
+const CAT=[
+ [/joint|dovetail|mortise|tenon|rabbet|dado|joinery|\blap\b|halv/i,'#8fb0d6'],
+ [/plane|chisel|\bsaw|hand ?tool|handsaw|marking|scraper|sharpen/i,'#8cc3bb'],
+ [/tablesaw|bandsaw|router|lathe|drill|jointer|planer|machine|power|sander|milling/i,'#a6aecb'],
+ [/finish|stain|varnish|lacquer|shellac|paint|colou?r|\bwax|polish|dye|seal|prim/i,'#a9c791'],
+ [/wood|lumber|veneer|timber|material|grain|plywood/i,'#c3c193'],
+ [/turn|bowl|spindle|faceplate/i,'#b7a7d3'],
+ [/carv|marquetry|inlay|relief/i,'#d3a9bf'],
+ [/design|style|american|shaker|reproduction|period|theory|understanding|chippendale|influential/i,'#a9b3d6'],
+ [/jig|fixture|clamp|workbench|shop|dust|storage|accessor|bench/i,'#a7b0b6'],
+ [/hardware|hinge|drawer|door|\bbox|case|cabinet|chest|shel/i,'#bdb6ac'],
+];
+function catColor(l){for(const c of CAT)if(c[0].test(l))return c[1];return '#9ba0a8';}
+function hx(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function mix(a,b,t){a=hx(a);b=hx(b);return'rgb('+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')+')';}
+
+let FULL=null,MODE='full',centerId=null;
+function loadGraph(g,mode,cid){
+  MODE=mode;centerId=cid||null;
+  const maxc=Math.max(1,...g.nodes.map(n=>n.count));
+  let cmax=1;g.edges.forEach(e=>{if(e.from===centerId||e.to===centerId)cmax=Math.max(cmax,e.w);});
+  NODES=g.nodes.map(n=>{
+    const isC=n.id===centerId;let col;
+    if(mode==='sub'){
+      if(isC)col='#7fb0e0';
+      else{
+        const e=g.edges.find(x=>(x.from===centerId&&x.to===n.id)||(x.to===centerId&&x.from===n.id));
+        col=mix('#6c7076','#7fa8d0',e?0.25+0.75*(e.w/cmax):0.2);
+      }
+    } else col=catColor(n.label);
+    return{...n,r:isC?20:5+15*Math.sqrt(n.count/maxc),col,x:(Math.random()-.5)*400,y:(Math.random()-.5)*400,vx:0,vy:0};
+  });
+  const byId={};NODES.forEach(n=>byId[n.id]=n);
+  EDGES=g.edges.filter(e=>byId[e.from]&&byId[e.to]).map(e=>({a:byId[e.from],b:byId[e.to],w:e.w}));
+  adj={};NODES.forEach(n=>adj[n.id]=new Set());
+  EDGES.forEach(e=>{adj[e.a.id].add(e.b.id);adj[e.b.id].add(e.a.id);});
+  if(centerId&&byId[centerId]){byId[centerId].x=0;byId[centerId].y=0;}
+  resize();layout(mode==='sub'?340:480);clampOutliers();fitView();render();
+  $('#gcap').textContent=mode==='sub'
+    ?(NODES.length-1)+' topics related to “'+g.center+'”'
+    :(W<520?'drag · pinch to zoom · tap a node':'topic map · drag to pan · scroll or pinch to zoom · tap a node to search');
+  $('#gcap').dataset.center=g.center||'';
+  $('#back').style.display=mode==='sub'?'inline-flex':'none';
+}
+
+api('/api/topicgraph').then(g=>{FULL=g;loadGraph(g,'full');});
+function showFull(){
+  $('#relbar').style.display='none';
+  if(FULL)loadGraph(FULL,'full');
+}
+$('#back').onclick=showFull;
+// On-screen zoom: a phone has no wheel and pinch is fiddly on a dense graph.
+$('#zIn').onclick=()=>{zoomAt(W/2,Hh/2,1.35);render();};
+$('#zOut').onclick=()=>{zoomAt(W/2,Hh/2,1/1.35);render();};
+$('#zFit').onclick=()=>{fitView();render();};
+
+function clampOutliers(){
+  // Weakly connected nodes get flung far out by repulsion. Left alone they
+  // dominate the bounding box, so "fit" zoomed out until the real cluster was
+  // a dot and the strays sat in the corners. Pull them back to a sane radius.
+  const cx=NODES.reduce((s,n)=>s+n.x,0)/NODES.length;
+  const cy=NODES.reduce((s,n)=>s+n.y,0)/NODES.length;
+  const ds=NODES.map(n=>Math.hypot(n.x-cx,n.y-cy)).sort((a,b)=>a-b);
+  const med=ds[Math.floor(ds.length/2)]||1;
+  const maxR=Math.max(med*1.8,1);
+  for(const n of NODES){
+    const dx=n.x-cx,dy=n.y-cy,d=Math.hypot(dx,dy);
+    if(d>maxR){n.x=cx+dx/d*maxR;n.y=cy+dy/d*maxR;}
+  }
+}
+
+function layout(iters){
+  // floor on W*Hh: if the canvas has not been measured yet the old value of 1
+  // made k tiny, sucked every node onto the origin and the graph never recovered
+  // 0.6 packed nodes tighter than their own radii, so labels collided into a
+  // mat. ~1.2 gives each node roughly its diameter of breathing room.
+  const k=Math.sqrt(Math.max(W*Hh,3600)/Math.max(NODES.length,1))*1.2;let temp=W>0?W/7:60;
+  for(let it=0;it<iters;it++){
+    NODES.forEach(n=>{n.dx=0;n.dy=0;});
+    for(let i=0;i<NODES.length;i++)for(let j=i+1;j<NODES.length;j++){
+      const a=NODES[i],b=NODES[j];
+      let dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy)||.01;
+      const rep=k*k/d,fx=dx/d*rep,fy=dy/d*rep;
+      a.dx+=fx;a.dy+=fy;b.dx-=fx;b.dy-=fy;
+    }
+    EDGES.forEach(e=>{
+      let dx=e.a.x-e.b.x,dy=e.a.y-e.b.y,d=Math.hypot(dx,dy)||.01;
+      const att=d*d/k*(0.3+Math.min(e.w,8)*0.05),fx=dx/d*att,fy=dy/d*att;
+      e.a.dx-=fx;e.a.dy-=fy;e.b.dx+=fx;e.b.dy+=fy;
+    });
+    NODES.forEach(n=>{
+      if(n===dragN)return;
+      n.dx-=n.x*0.10;n.dy-=n.y*0.10;
+      const d=Math.hypot(n.dx,n.dy)||.01;
+      n.x+=n.dx/d*Math.min(d,temp);n.y+=n.dy/d*Math.min(d,temp);
+    });
+    temp=Math.max(temp*0.96,2);
+  }
+}
+
+const toScreen=n=>({x:view.x+n.x*view.s,y:view.y+n.y*view.s});
+function render(){
+  if(!W)return;
+  ctx.clearRect(0,0,W,Hh);
+  // Zoomed out, every node passed the size test and the labels piled into an
+  // unreadable mat. Label only the biggest few until you zoom in — fewer on a
+  // phone, where the same count would sit in a quarter of the space.
+  const cap=view.s<.55&&!hoverN?(W<520?12:28):0;
+  const bigSet=new Set(NODES.slice().sort((a,b)=>b.r-a.r).slice(0,cap));
+  const labelCap=cap===0?Infinity:cap;
+  const hl=hoverN?adj[hoverN.id]:null;
+  EDGES.forEach(e=>{
+    const p=toScreen(e.a),q=toScreen(e.b);
+    const on=hoverN&&(e.a===hoverN||e.b===hoverN);
+    ctx.strokeStyle=on?'rgba(150,178,214,.5)':'rgba(150,155,166,.10)';
+    ctx.lineWidth=on?1.4:0.6;
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+  });
+  NODES.forEach(n=>{
+    const p=toScreen(n);
+    const dim=hoverN&&n!==hoverN&&!(hl&&hl.has(n.id));
+    const isC=MODE==='sub'&&n.id===centerId;
+    ctx.beginPath();ctx.arc(p.x,p.y,n.r*view.s,0,7);
+    ctx.fillStyle=dim?'#494c52':n.col;
+    ctx.globalAlpha=dim?.45:1;
+    ctx.fill();ctx.globalAlpha=1;
+    if(isC){ctx.lineWidth=2;ctx.strokeStyle='#eef0f3';ctx.stroke();}
+    const showL=isC||(hoverN&&(n===hoverN||(hl&&hl.has(n.id))))||bigSet.has(n)||(labelCap===Infinity&&n.r*view.s>7);
+    if(showL){
+      ctx.fillStyle=isC?'#fff':(dim?'#6e7178':'#d6d8dc');
+      ctx.font=(isC?'bold 13px':'11px')+' "Segoe UI",system-ui,sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='top';
+      ctx.fillText(n.label,p.x,p.y+n.r*view.s+3);
+    }
+  });
+}
+
+function hitNode(mx,my){
+  for(let i=NODES.length-1;i>=0;i--){
+    const n=NODES[i],p=toScreen(n);
+    if(Math.hypot(mx-p.x,my-p.y)<=Math.max(n.r*view.s,8))return n;
+  }
+  return null;
+}
+
+/* Pointer handling covers mouse and touch with one code path:
+   - 1 pointer on empty space  -> pan
+   - 1 pointer on a node       -> drag that node
+   - 2 pointers                -> pinch zoom + pan together
+   The old code tracked a single dragP/dragN, so a second finger overwrote the
+   first and the map jumped instead of zooming; there was no touch path at all.
+   Pointer Events are cancelled by touch-action:none on the canvas, otherwise
+   the browser scrolls the page instead of handing us the gesture.            */
+const PTR=new Map();
+let pinch=null, moved=0, downHit=null;
+
+function cvPos(e){
+  const r=cv.getBoundingClientRect();
+  return {x:e.clientX-r.left,y:e.clientY-r.top};
+}
+function zoomAt(mx,my,factor){
+  const ns=Math.max(.12,Math.min(6,view.s*factor));
+  view.x=mx-(mx-view.x)*(ns/view.s);
+  view.y=my-(my-view.y)*(ns/view.s);
+  view.s=ns;
+}
+function pinchState(){
+  const p=[...PTR.values()];
+  return {d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1,
+          mx:(p[0].x+p[1].x)/2,my:(p[0].y+p[1].y)/2};
+}
+cv.addEventListener('pointerdown',e=>{
+  try{cv.setPointerCapture(e.pointerId);}catch(_){}  // synthetic ids throw
+  const p=cvPos(e);
+  PTR.set(e.pointerId,{...p,s:view.s,vx:view.x,vy:view.y});
+  moved=0;downHit=null;
+  if(PTR.size===1){
+    downHit=hitNode(p.x,p.y);
+    if(downHit){dragN=downHit;}
+    else{dragP={x:p.x,y:p.y,vx:view.x,vy:view.y};$('#graphwrap').classList.add('drag');}
+  } else if(PTR.size===2){
+    // second finger down: cancel whatever the first was doing
+    dragN=null;dragP=null;$('#graphwrap').classList.remove('drag');
+    pinch=pinchState();
+  }
+  e.preventDefault();
+});
+cv.addEventListener('pointermove',e=>{
+  const p=cvPos(e);
+  if(PTR.has(e.pointerId)){PTR.set(e.pointerId,{...p,s:view.s,vx:view.x,vy:view.y});}
+  if(pinch&&PTR.size>=2){
+    const now=pinchState();
+    zoomAt(now.mx,now.my,now.d/pinch.d);
+    view.x+=now.mx-pinch.mx;view.y+=now.my-pinch.my;
+    pinch={d:now.d,mx:now.mx,my:now.my};
+    moved+=99;
+    render();return;
+  }
+  if(dragN){
+    dragN.x=(p.x-view.x)/view.s;dragN.y=(p.y-view.y)/view.s;
+    render();return;
+  }
+  if(dragP){
+    view.x=dragP.vx+(p.x-dragP.x);view.y=dragP.vy+(p.y-dragP.y);
+    render();return;
+  }
+  const prev=hoverN;hoverN=hitNode(p.x,p.y);
+  if(prev!==hoverN){cv.style.cursor=hoverN?'pointer':'grab';render();}
+});
+function endPointer(e){
+  const was=hitNode(cvPos(e).x,cvPos(e).y);
+  PTR.delete(e.pointerId);
+  if(PTR.size<2)pinch=null;
+  if(PTR.size===1){
+    // lifted one of two fingers: resume panning with the one that stayed
+    const p=[...PTR.values()][0];
+    dragN=dragP=null;$('#graphwrap').classList.remove('drag');
+    dragP={x:p.x,y:p.y,vx:view.x,vy:view.y};
+    $('#graphwrap').classList.add('drag');
+  } else if(PTR.size===0){
+    if(dragN&&moved<6&&downHit===was){          // a tap, not a drag
+      $('#q').value=downHit.label;
+      doSearch(true);
+    }
+    dragN=null;dragP=null;$('#graphwrap').classList.remove('drag');
+  }
+}
+cv.addEventListener('pointerup',endPointer);
+cv.addEventListener('pointercancel',endPointer);
+// count real movement so a tap is not mistaken for a drag
+cv.addEventListener('pointermove',e=>{
+  if(!PTR.has(e.pointerId))return;
+  const p=cvPos(e),prev=PTR.get(e.pointerId);
+  moved+=Math.hypot(p.x-prev.x,p.y-prev.y);
+},{passive:true});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const p=cvPos(e);
+  zoomAt(p.x,p.y,e.deltaY<0?1.12:0.89);
+  render();
+},{passive:false});
+// double-tap / double-click zooms in, so a phone user is never stuck
+cv.addEventListener('dblclick',e=>{const p=cvPos(e);zoomAt(p.x,p.y,1.6);render();});
+cv.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+
+/* ------------- Ingest / OCR / Health ------------- */
+const dz=$('#drop');
+['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+dz.addEventListener('drop',async e=>{
+  const fs=[...e.dataTransfer.files].filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+  if(!fs.length)return;
+  for(const f of fs){
+    const fd=new FormData();fd.append('pdf',f,f.name);
+    await fetch('/api/upload',{method:'POST',body:fd});
+  }
+  loadJobs();
+});
+
+$('#fileinput').addEventListener('change',async e=>{
+  const fs=[...e.target.files].filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+  if(!fs.length)return;
+  for(const f of fs){
+    const fd=new FormData();fd.append('pdf',f,f.name);
+    await fetch('/api/upload',{method:'POST',body:fd});
+  }
+  e.target.value='';
+  loadJobs();
+});
+
+/* --- feedback helpers: every button reports what really happened --- */
+function toast(msg,kind){
+  const t=document.createElement('div');
+  t.className='toast'+(kind?' '+kind:'');
+  t.textContent=msg;
+  $('#toasts').appendChild(t);
+  setTimeout(()=>{t.style.transition='opacity .3s';t.style.opacity='0';setTimeout(()=>t.remove(),320);},4600);
+}
+/* Deleting is a real fork in the road — "keep the PDF" and "delete the PDF"
+   are both irreversible in different ways, so ask instead of assuming.
+   Resolves to 'index' | 'file' | null (cancel). */
+function askDelete({title, rows, fileName, indexLabel, fileLabel}){
+  return new Promise(resolve=>{
+    const back=$('#ask');
+    $('#askTitle').textContent=title||'Remove this book?';
+    $('#askRows').textContent=rows||'';
+    $('#askFile').textContent=fileName||'';
+    $('#askIndex').textContent=indexLabel||'Remove from index only';
+    $('#askFileDel').textContent=fileLabel||'Delete the PDF too';
+    back.classList.add('show');
+    const done=v=>{
+      back.classList.remove('show');
+      $('#askIndex').onclick=null;$('#askFileDel').onclick=null;$('#askCancel').onclick=null;
+      document.removeEventListener('keydown',onKey);
+      resolve(v);
+    };
+    const onKey=e=>{ if(e.key==='Escape')done(null); };
+    $('#askCancel').onclick=()=>done(null);
+    $('#askIndex').onclick=()=>done('index');
+    $('#askFileDel').onclick=()=>done('file');
+    document.addEventListener('keydown',onKey);
+    $('#askIndex').focus();
+  });
+}
+
+async function post(url,body,btn){
+  if(btn){btn.classList.add('busy');btn.disabled=true;}
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+                             body:JSON.stringify(body||{})});
+    let d={}; try{d=await r.json();}catch(e){}
+    if(!r.ok)throw new Error(d.error||(r.status+' '+r.statusText));
+    return d;
+  }finally{ if(btn){btn.classList.remove('busy');btn.disabled=false;} }
+}
+const age=m=>m<0?'—':(m<60?m+'m':Math.floor(m/60)+'h '+(m%60)+'m');
+
+let BOOKS=[];                 // full list from /api/books
+let PATHS={};                 // library root / db / inbox, from /api/paths
+let bookSort={key:'title',dir:1};
+const SEL=new Set();          // selected book paths, survives re-render + filter
+
+// The search box advertises how much is searchable, so it has to follow every
+// add / re-index / OCR / delete — including ones running in the background
+// while the user is on another tab.
+function setPageCount(n){
+  const q=$('#q');
+  if(q)q.placeholder=`Search ${n.toLocaleString()} pages…   "exact phrase"  -exclude  (Enter)`;
+}
+let statTimer=null;
+async function refreshPageCount(){
+  try{
+    const d=await api('/api/stats');
+    if(d&&typeof d.pages==='number')setPageCount(d.pages);
+  }catch(e){}
+}
+
+// Where the app thinks the library lives. Fetched once and reused in Health,
+// so the paths shown are the ones the server actually resolved.
+async function loadPaths(){
+  try{
+    PATHS=await api('/api/paths')||{};
+    const el=$('#dropPath');
+    if(el&&PATHS.inbox)el.textContent='Drop folder: '+PATHS.inbox;
+  }catch(e){}
+}
+
+// Selection changes must NOT redraw 425 rows: that destroys the checkbox the
+// user just clicked (and the scroll position), so rapid multi-select silently
+// dropped clicks. Only the selection chrome is updated.
+function syncBulkUi(rows){
+  const all=$('#bAll'), nSel=rows.filter(x=>SEL.has(x.file)).length;
+  if(all){all.checked=rows.length>0&&nSel===rows.length;
+         all.indeterminate=nSel>0&&nSel<rows.length;}
+  $('#bulkbar').style.display=SEL.size?'':'none';
+  $('#bulkCount').textContent=SEL.size+' selected'
+    +(SEL.size!==nSel?' ('+nSel+' of the '+rows.length+' shown)':'');
+}
+
+function filterBooks(){
+  const q=$('#bq').value.trim().toLowerCase();
+  const st=$('#bStatus').value;
+  const pg=$('#bPages').value;
+  const dp=$('#bDup').value;
+  let rows=BOOKS.filter(x=>{
+    if(q && !(x.title||'').toLowerCase().includes(q)
+          && !(x.collection||'').toLowerCase().includes(q))return false;
+    if(st && x.status!==st)return false;
+    if(pg){
+      const n=x.pages||0;
+      const m=/^(\d+)-(\d*)$/.exec(pg);
+      if(m){ if(n<+m[1] || (m[2] && n>+m[2]))return false; }
+    }
+    const isDup=!!(x.dup>0||x.dup_of);
+    if(dp==='only' && !isDup)return false;
+    if(dp==='none' && isDup)return false;
+    return true;
+  });
+  const k=bookSort.key,dir=bookSort.dir;
+  rows.sort((a,b)=>{
+    let va,vb;
+    if(k==='title'){va=(a.title||'').toLowerCase();vb=(b.title||'').toLowerCase();}
+    else if(k==='collection'){va=(a.collection||'').toLowerCase();vb=(b.collection||'').toLowerCase();}
+    else if(k==='year'){va=a.year||0;vb=b.year||0;}
+    else if(k==='pages'){va=a.pages||0;vb=b.pages||0;}
+    else if(k==='mtime'){va=a.mtime||0;vb=b.mtime||0;}
+    else {va=a.status||'';vb=b.status||'';}
+    // A missing value is not "smallest" -- push it to the bottom either way,
+    // so the oldest/newest book is where you expect it in both directions.
+    const ma=(va===0||va===''||va==null), mb=(vb===0||vb===''||vb==null);
+    if(ma||mb){ if(ma&&mb)return 0; return ma?1:-1; }
+    if(va<vb)return -dir; if(va>vb)return dir;
+    return (a.title||'').toLowerCase()<(b.title||'').toLowerCase()?-1:1;
+  });
+  return rows;
+}
+
+// The title usually *is* the file name, so a second line repeating it (with
+// ".pdf" on the end) was pure noise. Only show one when it adds something:
+// a job detail, a missing-file warning, or a name that genuinely differs.
+function bookSubline(x){
+    const fn=(x.file||'').split(/[\\/]/).pop()||'';
+    const stem=fn.replace(/\.pdf$/i,'');
+    const same=stem.trim().toLowerCase()===(x.title||'').trim().toLowerCase();
+    if(!x.detail&&same&&x.exists)return '';
+    const txt=x.detail||(same?fn:fn);
+    return `<span class="bk-sub" title="${esc(x.file)}">${x.exists?'':'file missing · '}${esc(txt)}</span>`;
+}
+
+function renderBooks(){
+  const rows=filterBooks();
+  syncBulkUi(rows);
+  const needOcr=BOOKS.filter(x=>x.status==='image-only').length;
+  const dupN=BOOKS.filter(x=>x.dup>0||x.dup_of).length;
+  const mergedN=BOOKS.filter(x=>x.status==='duplicate').length;
+  const missingN=BOOKS.filter(x=>x.status==='missing').length;
+  const shown=rows.length, total=BOOKS.length;
+  // "indexed" is a lie when the list also holds not-indexed rows, and now that
+  // the walk covers the whole tree it routinely does.
+  const notIndexed=BOOKS.filter(x=>x.status==='not-indexed').length;
+  const indexed=total-notIndexed;
+  $('#bookSummary').textContent=indexed+' books indexed'
+    +(notIndexed?' · '+notIndexed+' not indexed':'')
+    +' · '+needOcr+' need OCR'
+    +(dupN?' · '+dupN+' duplicated':'')+(missingN?' · '+missingN+' missing':'')
+    +(shown<total?' · showing '+shown:'');
+  const df=$('#dupFix');
+  df.style.display=(dupN-mergedN)>0?'':'none';
+  df.textContent='Clean duplicates ('+(dupN-mergedN)+')';
+  document.querySelectorAll('#qtabScroll th[data-sort]').forEach(th=>{
+    const a=th.querySelector('.arrow'); if(a)a.remove();
+    if(th.dataset.sort===bookSort.key)
+      th.insertAdjacentHTML('beforeend','<span class="arrow">'+(bookSort.dir>0?'▲':'▼')+'</span>');
+  });
+
+  if(!rows.length){
+    $('#jobs').innerHTML='<tr><td colspan=7 class="hint">'+(total?'No book matches the current filter.':'Nothing indexed yet.')+'</td></tr>';
+    return;
+  }
+  $('#jobs').innerHTML=rows.map((x,i)=>`<tr>
+    <td><input type="checkbox" class="bSel" data-sel="${esc(x.file)}"${SEL.has(x.file)?' checked':''}></td>
+    <td>${x.exists&&/[^\\/]$/i.test(x.file)&&x.indexed_pages
+        ?`<a class="bk-title" href="/rawfile?path=${encodeURIComponent(x.file)}" target="_blank" rel="noopener" title="Open ${esc(x.file)} in a new tab">${esc(x.title)}</a>`
+        :`<span class="bk-title">${esc(x.title)}</span>`}${x.dup?`<span class="badge-dup" title="${esc(x.dup_paths.join('\n'))}">×${x.dup+1} indexed</span>`:''}${x.copies&&!x.dup_of?`<span class="badge-dup" title="${esc(x.dup_files.join('\n'))}">×${x.copies} files</span>`:''}${x.dup_of?`<span class="badge-dup" title="${esc(x.file)}">copy of “${esc(x.dup_of.slice(0,30))}”</span>`:''}
+      ${bookSubline(x)}</td>
+    <td>${x.year?String(x.year):'—'}</td>
+    <td>${x.pages?`${(x.indexed_pages||0).toLocaleString()}/${x.pages.toLocaleString()}`:'—'}</td>
+    <td><span class="st st-${x.status.replace(/_/g,'-')}">${x.status.replace(/_/g,' ')}</span></td>
+    <td>${x.mtime?new Date(x.mtime*1000).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'2-digit'}):'—'}</td>
+    <td class="actions">
+      ${x.status==='duplicate'
+        ?`<button class="act" data-restore="${i}">Restore</button>`
+        :`${x.status==='not-indexed'?`<button class="act" data-add="${i}">Add</button>`:''}
+      ${(x.status==='indexed'||x.status==='ocr'||x.status==='image-only')?`<button class="act" data-re="${i}">Re-index</button>`:''}
+      ${x.status==='image-only'?`<button class="act big" data-ocr1="${i}">OCR</button>`:''}
+      ${x.dup?`<button class="act subtle" data-dedup="${i}">Merge dup</button>`:''}
+      ${x.dup_of?`<button class="act subtle" data-merge="${i}">Merge</button>`:''}
+      <button class="act danger" data-del="${i}">Delete</button>`}
+    </td>
+  </tr>`).join('');
+
+  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.add];
+    const r=await post('/api/book_index',{path:x.file},b).catch(e=>{toast(e.message,'bad');});
+    if(r){toast('Indexing “'+x.title.slice(0,40)+'”','good');loadJobs();}
+  });
+  document.querySelectorAll('[data-re]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.re];
+    if(!confirm('Re-index “'+x.title+'”?\nIts index rows are rebuilt from the PDF.'))return;
+    const r=await post('/api/book_index',{path:x.file},b).catch(e=>{toast(e.message,'bad');});
+    if(r){toast('Re-index queued (old rows: '+(r.deleted?r.deleted.pages:0)+' pages)','good');loadJobs();}
+  });
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.del];
+    const pageRows=(x.indexed_pages||0);
+    const choice=await askDelete({
+      title:'Remove “'+x.title+'”?',
+      rows:pageRows.toLocaleString()+' page rows will leave the index.',
+      fileName:x.file.split(/[\\/]/).pop(),
+    });
+    if(!choice)return;
+    const r=await post('/api/book_delete',{path:x.file,file:choice==='file'},b)
+      .catch(e=>{toast(e.message,'bad');});
+    if(r)loadJobs();
+    if(r&&r.moved_to)
+      toast('Deleted the PDF too — moved to '+r.moved_to,'good');
+  });
+  document.querySelectorAll('[data-dedup]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.dedup];
+    const r=await post('/api/book_dedup',{path:x.file},b).catch(e=>{toast(e.message,'bad');});
+    if(r){toast('Merged −'+(r.sources||0)+' source / −'+(r.pages||0)+' page rows (kept one copy)','good');loadJobs();}
+  });
+  document.querySelectorAll('[data-ocr1]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.ocr1];
+    const r=await post('/api/ocr_one',{path:x.file},b).catch(e=>{toast(e.message,'bad');});
+    if(r){toast('OCR started: '+(r.started||[]).join(', '),'good');loadJobs();}
+  });
+  document.querySelectorAll('[data-merge]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.merge];
+    if(!confirm('Merge “'+x.title+'” with “'+x.dup_of+'”?\n\nIts index rows are removed and this copy is ignored by Rescan. The PDF file stays on disk.'))return;
+    const r=await post('/api/book_merge',{path:x.file},b).catch(e=>{toast(e.message,'bad');});
+    if(r){toast('Merged −'+(r.sources||0)+' source / −'+(r.pages||0)+' page rows · copy ignored (Restore brings it back)','good');loadJobs();}
+  });
+  document.querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{
+    const x=rows[+b.dataset.restore];
+    const r=await post('/api/book_restore',{path:x.file},b).catch(e=>{toast(e.message,'bad');});
+    if(r){toast('Restored – indexing “'+x.title.slice(0,40)+'” again','good');loadJobs();}
+  });
+  document.querySelectorAll('.bSel').forEach(cb=>cb.onchange=()=>{
+    if(cb.checked)SEL.add(cb.dataset.sel);else SEL.delete(cb.dataset.sel);
+    syncBulkUi(rows);
+  });
+}
+
+/* sort + filter wiring for the book list */
+document.querySelectorAll('#qtabScroll th[data-sort]').forEach(th=>{
+  th.onclick=()=>{
+    const k=th.dataset.sort;
+    bookSort=bookSort.key===k?{key:k,dir:-bookSort.dir}:{key:k,dir:1};
+    renderBooks();
+  };
+});
+$('#bq').addEventListener('input',renderBooks);
+$('#bStatus').addEventListener('change',renderBooks);
+$('#bPages').addEventListener('change',renderBooks);
+$('#bDup').addEventListener('change',renderBooks);
+$('#bReset').onclick=()=>{
+  $('#bq').value='';$('#bStatus').value='';
+  $('#bPages').value='';$('#bDup').value='';
+  bookSort={key:'title',dir:1};
+  renderBooks();
+};
+
+async function loadJobs(){
+  let d; try{ d=await api('/api/books'); }catch(e){ return; }
+  BOOKS=(d&&d.books)||[];
+  // keep the searchable-page count in the search box honest: /api/books is
+  // refetched after every add / re-index / OCR / delete and on every SSE event
+  if(d&&typeof d.pages==='number')setPageCount(d.pages);
+  renderBooks();
+}
+
+async function loadHealth(){
+  const h=await api('/api/health');
+  await loadPaths();      // keeps the scan state + on-disk PDF count live
+  const emb=await api('/api/embed_status').catch(()=>null);
+  window.EMB=emb;
+  // `pages` is every page of every book; `indexed_pages` counts the ones with
+  // enough text to search. The gap is not a failure: it is short pages, blank
+  // verso pages and covers, which MIN_PAGE_CHARS drops on purpose. Naming it
+  // "coverage" invited reading 92% as "8% is broken".
+  const cov=h.src_pages>0?Math.round(100*h.src_indexed/h.src_pages):0;
+  const covMiss=Math.max(0,(h.src_pages||0)-(h.src_indexed||0));
+  const k=[
+    [h.pages.toLocaleString(),'pages',''],
+    [h.sources.toLocaleString(),'sources',''],
+    [h.image_only.toLocaleString(),'image-only',h.image_only?'warn':''],
+    [h.jobs_active,'active jobs',h.jobs_active?'warn':''],
+    [h.dup_groups,'double-indexed',h.dup_groups>0?'bad':''],
+    [h.dup_files,'merged copies',''],
+    [h.ocr_running?'running':'idle','OCR queue',h.ocr_running?'warn':''],
+    [h.ocr_mode||'CPU','OCR engine',''],
+    [age(h.concept_age_min),'concept layer',''],
+    emb?[emb.embedded.toLocaleString()+'/'+emb.embeddable.toLocaleString(),
+         'semantic vectors',
+         (emb.pct>=100&&emb.model_ready!==false)?'':(emb.pct>0?'warn':'bad')]:null,
+    emb?[emb.pct+'%','vector build',emb.pct>=100?'':'warn']:null
+  ].filter(Boolean);
+  $('#kpis').innerHTML=k.map(([v,l,c])=>
+      `<span class="kpi ${c}"><b>${v}</b>${l}</span>`).join('')+
+    `<span class="cover"><b>Pages with text</b>
+      <span class="covnum">${cov}%</span>
+      <span class="hint">${h.src_indexed.toLocaleString()} searchable of ${h.src_pages.toLocaleString()}
+        · ${covMiss.toLocaleString()} blank / too short to index</span>
+      <span class="bar"><i class="${cov<50?'bad':(cov<80?'warn':'')}" style="width:${cov}%"></i></span></span>`;
+  const bits=['index.db '+(h.lib_size>0?(h.lib_size/1048576).toFixed(1)+' MB':'?'),'mtime '+h.lib_mtime,
+              'OCR '+(h.ocr_running?'running':'idle')+' on '+(h.ocr_mode||'CPU'),'dupes '+(h.dup_groups||0),'concepts '+age(h.concept_age_min)+' old'];
+  $('#audit').textContent='Library: '+bits.join(' · ');
+  $('#prodAudit').textContent=(PATHS.index_db?('Connected to '+PATHS.index_db):'Index db not created yet')+
+    ' (single writer; Explorer protected). '+
+    'Size: '+(h.lib_size/1048576).toFixed(1)+' MB, mtime: '+h.lib_mtime+
+    ' · dupes: '+(h.dup_groups||0)+' · OCR: '+(h.ocr_running?'running':'idle')+' on '+(h.ocr_mode||'CPU')+' · concepts: '+age(h.concept_age_min)+' old';
+  const pa=$('#pathAudit');
+  if(pa&&PATHS.library_root){
+    pa.textContent='Library root: '+PATHS.library_root+
+      ' · drop folder: '+(PATHS.inbox||'—')+
+      ' · trash: '+(PATHS.trash||'—')+
+      ' · PDFs on disk: '+(PATHS.library_pdfs||0).toLocaleString()+
+      ' ('+(PATHS.sources||0).toLocaleString()+' indexed'+
+      (PATHS.not_indexed?', '+(PATHS.not_indexed||0).toLocaleString()+' not indexed':'')+')'+
+      (PATHS.scan&&PATHS.scan.running?' · library scan running…':'');
+  }
+  const eb=$('#embedBtns');
+  if(eb&&emb){
+    const done=emb.embeddable>0&&emb.embedded>=emb.embeddable;
+    eb.style.display='flex';
+    eb.innerHTML=(emb.model_ready===false
+        ? '<span class="hint" style="margin:0;color:var(--mark)">Semantic layer is OFF: '+
+          emb.embedded.toLocaleString()+' vectors are stored, but this interpreter cannot '+
+          'embed queries (fastembed missing). Search falls back to keywords.</span>'
+        : done
+        ? '<span class="hint" style="margin:0">Semantic layer: '+emb.embedded.toLocaleString()+
+          ' vectors · '+emb.model+' · built '+age(emb.age_min)+' ago'+
+          (emb.skipped?' ('+emb.skipped.toLocaleString()+' near-empty pages skipped)':'')+
+          '</span>'
+        : '<button class="act md" id="embedBuild">'+(emb.embedded?'Top up vectors':'Build vectors')+
+          ' ('+emb.embedded.toLocaleString()+'/'+emb.embeddable.toLocaleString()+')</button>'+
+          (emb.building?'<button class="act md subtle" id="embedStop">Stop</button>':''))+
+      (emb.model_ready===false?'':
+       '<button class="act md subtle" id="embedReset" title="Delete every stored vector; the next build starts over">Reset vectors</button>');
+    if($('#embedBuild'))$('#embedBuild').onclick=async()=>{
+      const r=await post('/api/embed_build',{},$('#embedBuild')).catch(e=>{toast(e.message,'bad');});
+      if(r&&r.started){toast('Embedding pages in the background…','good');loadHealth();}
+    };
+    if($('#embedStop'))$('#embedStop').onclick=async()=>{
+      await post('/api/embed_stop',{},null).catch(()=>{});
+      toast('Stop requested – finishing the current batch…');
+    };
+    if($('#embedReset'))$('#embedReset').onclick=async()=>{
+      if(!confirm('Delete every stored page vector?\n\nThe next build starts from scratch; the PDF index is not touched.'))return;
+      const r=await post('/api/embed_reset',{},$('#embedReset')).catch(e=>{toast(e.message,'bad');});
+      if(r){toast('All page vectors deleted','good');loadHealth();}
+    };
+  }
+}
+
+const es=new EventSource('/api/events');
+let jobTimer=null;
+es.onmessage=e=>{
+  const d=$('#log');
+  if(d){
+    if(d.firstElementChild)d.innerHTML='';   // drop the "nothing happened" note
+    d.textContent+=e.data+'\n';d.scrollTop=d.scrollHeight;
+  }
+  // SSE fires often: refresh the book list at most twice a second
+  if(currentTab==='add'&&!jobTimer){jobTimer=setTimeout(()=>{jobTimer=null;loadJobs();},600);}
+  // the header count must track background indexing on any tab
+  if(!statTimer){statTimer=setTimeout(()=>{statTimer=null;refreshPageCount();},1500);}
+  if(currentTab==='health'&&!healthTimer){healthTimer=setTimeout(()=>{healthTimer=null;loadHealth();},2000);}
+};
+let healthTimer=null;
+
+$('#ocrAll').onclick=async()=>{
+  const r=await post('/api/ocr_all',null,$('#ocrAll')).catch(e=>{toast(e.message,'bad');});
+  if(r){
+    const n=(r.started||[]).length;
+    toast(n?`OCR started for ${n} book(s)`:'Nothing to OCR (no image-only books)',n?'good':'');
+    if(n)toast('First: '+r.started[0].slice(0,50));
+    loadJobs();
+  }
+};
+$('#stopOcr').onclick=async()=>{
+  const r=await post('/api/ocr_stop',null,$('#stopOcr')).catch(e=>{toast(e.message,'bad');});
+  if(r){toast('Stop requested – finishing the current page…','good');loadJobs();}
+};
+$('#rescan').onclick=async()=>{
+  const r=await post('/api/rescan',null,$('#rescan')).catch(e=>{toast(e.message,'bad');});
+  if(r){toast(r.count?`Rescan: ${r.count} new file(s) queued`:'Drop folder is already up to date',r.count?'good':'');loadJobs();}
+};
+$('#scanLib').onclick=async()=>{
+  const r=await post('/api/scan_library',null,$('#scanLib')).catch(e=>{toast(e.message,'bad');});
+  if(r){toast(r.started?'Scanning the whole library – new PDFs appear in the log':'A library scan is already running',r.started?'good':'');loadJobs();}
+};
+$('#dupFix').onclick=async()=>{
+  const r=await post('/api/dup_fix',null,$('#dupFix')).catch(e=>{toast(e.message,'bad');});
+  if(r){toast(`Cleaned ${r.groups} duplicated book(s): −${r.sources} source / −${r.pages} page rows`,'good');loadJobs();}
+};
+
+// ---- bulk actions on the selected books ----
+function selectedBooks(){
+  return BOOKS.filter(x=>SEL.has(x.file));
+}
+$('#bAll').onchange=e=>{
+  filterBooks().forEach(x=>{ if(e.target.checked)SEL.add(x.file); else SEL.delete(x.file); });
+  renderBooks();
+};
+$('#bulkClear').onclick=()=>{SEL.clear();renderBooks();};
+$('#bulkOcr').onclick=async e=>{
+  const picks=selectedBooks().filter(x=>x.status==='image-only');
+  const skip=selectedBooks().length-picks.length;
+  if(!picks.length){toast('No image-only books in the selection','bad');return;}
+  const r=await post('/api/bulk_ocr',{paths:picks.map(x=>x.file)},$('#bulkOcr')).catch(err=>{toast(err.message,'bad');return;});
+  if(r){toast(`OCR queued for ${r.queued} book(s)`
+    +(skip?` · ${skip} skipped (already indexed, use Re-index)`:''),'good');loadJobs();}
+};
+$('#bulkRe').onclick=async e=>{
+  const picks=selectedBooks();
+  if(!picks.length)return;
+  const n=await post('/api/bulk_reindex',{paths:picks.map(x=>x.file)},$('#bulkRe')).catch(err=>{toast(err.message,'bad');return;});
+  if(n){toast(`Re-index queued for ${n.queued} book(s) · ${n.skipped} skipped`
+    +` (old rows: ${n.deleted} pages) — the PDFs stay untouched`,'good');loadJobs();}
+};
+$('#bulkDel').onclick=async e=>{
+  const picks=selectedBooks();
+  if(!picks.length)return;
+  const pages=picks.reduce((a,x)=>a+(x.indexed_pages||0),0);
+  const choice=await askDelete({
+    title:'Remove '+picks.length+' book(s)?',
+    rows:pages.toLocaleString()+' page rows will leave the index.',
+    fileName:null,
+    indexLabel:'Remove from index only',
+    fileLabel:'Delete the '+picks.length+' PDFs too',
+  });
+  if(!choice)return;
+  const r=await post('/api/bulk_delete',{paths:picks.map(x=>x.file),file:choice==='file'},$('#bulkDel'))
+    .catch(err=>{toast(err.message,'bad');return;});
+  if(r){
+    toast(`Removed ${r.sources} source / ${r.pages} page rows · `
+      +(r.files?`${r.files} PDF(s) moved to _trash`:'PDFs kept'),'good');
+    SEL.clear();loadJobs();
+  }
+};
+
+// Initialize
+switchTab('graph');
+doSearch(true);
+loadJobs();
+refreshPageCount();
+loadPaths();
+</script></body></html>

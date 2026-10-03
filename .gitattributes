@@ -1,0 +1,18 @@
+# Keep the repository itself line-ending-stable, so a checkout on Linux,
+# macOS or Windows produces the same bytes for the same commit.
+
+* text=auto
+
+*.py   text eol=lf
+*.html text eol=lf
+*.js   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.txt  text eol=lf
+
+# Batch files are executed by cmd.exe, which expects CRLF.
+*.cmd  text eol=crlf
+
+# Minified JavaScript is generated, not hand-written: keep it out of the
+# language statistics and let Git store it without whitespace churn.
+vendor/*.min.js -diff linguist-generated=true
