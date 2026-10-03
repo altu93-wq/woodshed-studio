@@ -65,8 +65,14 @@ border-radius:14px;padding:3px 10px;cursor:pointer;user-select:none}
 .hit{padding:11px 14px;border-radius:9px;cursor:pointer;border:1px solid transparent;margin-bottom:4px}
 .hit:hover{background:#232529;border-color:var(--line)}
 .hit .t{font-size:14px;color:var(--ink);font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+/* The year belongs next to the page number, not floating in the middle of the
+   row: `space-between` spread three children across the full width, so the
+   year landed halfway between the title and "p.79". They are now one right
+   -aligned group, and the title keeps whatever width is left. */
+.hit .t>span:first-child{min-width:0;flex:1 1 auto}
+.hit .tr{margin-left:auto;display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.hit .t .yr{color:var(--accent2);font-size:11.5px;font-weight:600;white-space:nowrap}
 .hit .m{font-size:11.5px;color:var(--dim);margin:2px 0 5px}
-.hit .m .yr{color:var(--accent2);font-weight:600}
 .hit .s{font-size:13px;color:#c2c4c8;line-height:1.45}
 .hit mark{background:transparent;color:var(--mark);font-weight:700}
 .hit .pg{color:var(--accent2);font-size:11.5px;white-space:nowrap;padding:1px 7px;background:var(--field);border-radius:6px;border:1px solid var(--line)}
@@ -603,8 +609,7 @@ function appendHits(hits){
     return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(h.title)}">
       <div class="t">
         <span>${esc(h.title)}</span>
-        ${h.year?'<span class="yr">'+h.year+'</span>':''}
-        <span class="pg">${hasPdf?'📄 ':''}p.${esc(h.page)}</span>
+        <span class="tr">${h.year?'<span class="yr">'+h.year+'</span>':''}<span class="pg">${hasPdf?'📄 ':''}p.${esc(h.page)}</span></span>
       </div>
       ${src?`<div class="m" title="${esc(src)}">📄 ${esc(src)}</div>`:''}
       <div class="s">${h.snippet}</div>
