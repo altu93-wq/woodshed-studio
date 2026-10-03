@@ -26,7 +26,8 @@ VENDOR = os.path.join(HERE, "vendor")
 LOGDIR = os.path.join(HERE, "logs")
 PORT = 8766
 
-EVENTS = []          # ring buffer of log lines for SSE
+EVENTS = []          # (seq, line) ring buffer for SSE, newest 300 kept
+EV_SEQ = 0           # monotonic; never reused, so truncation cannot lose a reader
 EV_COND = threading.Condition()
 writer = None
 ocr = None
@@ -52,8 +53,10 @@ def emit(msg):
             f.write(line + "\n")
     except OSError:
         pass
+    global EV_SEQ
     with EV_COND:
-        EVENTS.append(line)
+        EV_SEQ += 1
+        EVENTS.append((EV_SEQ, line))
         del EVENTS[:-300]
         EV_COND.notify_all()
 
@@ -142,12 +145,15 @@ def _new_pdfs(paths):
             and normpath(p) not in skip]
 
 
-def _queue_paths(fresh, parallel=True):
+def _queue_paths(fresh, parallel=True, done=None):
     """Register a 'queued' job row per file, then hand each to a worker.
 
     `parallel=False` feeds the single background queue instead of one thread per
     file: a whole-library scan can be hundreds of books, and hundreds of
     concurrent PyMuPDF extractions would thrash the disk and the FTS writer.
+
+    `done` is called once that queue has drained, which is what releases the
+    scan lock - it must not be released when this function returns.
     """
     fresh = sorted(fresh, key=lambda p: os.path.getsize(p) if os.path.exists(p) else 0)
     for p in fresh:
@@ -161,7 +167,8 @@ def _queue_paths(fresh, parallel=True):
         for p in fresh:
             threading.Thread(target=process_one, args=(p,), daemon=True).start()
     else:
-        threading.Thread(target=_index_queue, args=(fresh,), daemon=True).start()
+        threading.Thread(target=_index_queue, args=(fresh, done),
+                         daemon=True).start()
     return fresh
 
 
@@ -207,21 +214,65 @@ def scan_library_bg(root=None):
             SCAN["queued"] = len(fresh)
             emit(f"scan library {len(allp)} pdf(s) in {root0}, "
                  f"{len(fresh)} not indexed yet")
-            _queue_paths(fresh, parallel=False)
+            _queue_paths(fresh, parallel=False, done=lambda: _finish_scan())
         except Exception as e:
             emit(f"scan FAILED  {e}")
-        finally:
-            SCAN["running"] = False
+            _finish_scan()
     threading.Thread(target=_run, daemon=True).start()
     return True
 
-def _index_queue(paths):
+
+def _finish_scan():
+    """Release the scan lock - but only when the queue has actually drained.
+
+    `SCAN['running']` used to be cleared as soon as the tree walk returned,
+    while hundreds of books were still being indexed. A second
+    "Scan whole library" then passed the guard, built its own list from the
+    same not-yet-indexed files, and two `_index_queue` threads worked the
+    same paths: every book in the overlap was indexed twice, giving duplicate
+    `sources` rows and duplicate `pages` rows (239 books on one 440-book
+    import). The flag has to mean "a scan is in flight", not "a walk is".
+    """
+    SCAN["running"] = False
+
+def _index_queue(paths, done=None):
     """Index paths one after another on a single background thread."""
-    for p in paths:
-        try:
-            process_one(p)
-        except Exception as e:            # one bad file must not stop the queue
-            emit(f"bulk index failed  {os.path.basename(p)[:50]}  {e}")
+    try:
+        for p in paths:
+            try:
+                process_one(p)
+            except Exception as e:        # one bad file must not stop the queue
+                emit(f"bulk index failed  {os.path.basename(p)[:50]}  {e}")
+    finally:
+        if done:
+            done()
+
+
+_CLAIMED = set()
+_CLAIM_LOCK = threading.Lock()
+
+
+def _claim(path):
+    """Take exclusive ownership of a path for this process.
+
+    `process_one` checks `indexed_paths()` and then does the work, with a
+    long gap in between. Two threads - a scan queue and a re-index click, or
+    two scans started before the lock existed - both pass that check before
+    either writes, and both insert. The claim is in-process and short-lived:
+    taken before the first check, released when the book is written.
+    """
+    k = normpath(os.path.abspath(path))
+    with _CLAIM_LOCK:
+        if k in _CLAIMED:
+            return None
+        _CLAIMED.add(k)
+    return k
+
+
+def _release(key):
+    if key:
+        with _CLAIM_LOCK:
+            _CLAIMED.discard(key)
 
 
 def process_one(path):
@@ -229,6 +280,16 @@ def process_one(path):
         return
     if normpath(os.path.abspath(path)) in ignored_paths():
         return
+    _key = _claim(path)
+    if _key is None:
+        return                      # another worker already has this file
+    try:
+        _process_claimed(path)
+    finally:
+        _release(_key)
+
+
+def _process_claimed(path):
     if normpath(os.path.abspath(path)) in indexed_paths():
         return
     if not ingest.wait_stable(path):
@@ -703,14 +764,29 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            idx = 0
+            # Resume by sequence number, not by list index. The buffer is
+            # capped at 300, so an index cursor goes stale the moment the cap
+            # bites: once a reader had seen 300 lines, idx == len(EVENTS) ==
+            # 300 forever after, `EVENTS[idx:]` was permanently empty, and
+            # the stream died silently - a busy index run produced nothing
+            # after the first 300 lines. EV_SEQ only increases, so truncation
+            # can drop lines from the buffer without ever confusing a client
+            # about which ones it already has. EventSource replays
+            # `Last-Event-ID` for us on reconnect.
+            try:
+                last = int(self.headers.get("Last-Event-ID") or g("after") or 0)
+            except (TypeError, ValueError):
+                last = 0
             try:
                 while True:
                     with EV_COND:
                         EV_COND.wait(timeout=15)
-                        batch, idx = EVENTS[idx:], len(EVENTS)
-                    for line in batch:
-                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        batch = [(s, ln) for s, ln in EVENTS if s > last]
+                        if batch:
+                            last = batch[-1][0]
+                    for seq, line in batch:
+                        self.wfile.write(
+                            f"id: {seq}\ndata: {line}\n\n".encode("utf-8"))
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass

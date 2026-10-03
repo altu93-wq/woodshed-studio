@@ -183,7 +183,13 @@ td.actions .act{padding:3px 8px;font-size:11.5px;margin:1px 3px 1px 0}
 td.actions .act.danger{color:var(--bad);border-color:#3f2b2d;background:transparent}
 td.actions .act.danger:hover{background:#2a1e1f;border-color:var(--bad)}
 button.act[disabled]{opacity:.45;cursor:default}
-button.act.busy{color:transparent;pointer-events:none;position:relative}
+/* "Scan whole library" stays visibly pressed for as long as the scan runs,
+   which is now until the queue drains rather than until the walk returns.
+   A second click used to start a second queue over the same un-indexed
+   files, and every book in the overlap was indexed twice. */
+button.act.busy{opacity:1;cursor:default;background:var(--active);
+  border-color:var(--accent);color:transparent;pointer-events:none;
+  position:relative}
 button.act.busy::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;
 margin:-6px 0 0 -6px;border:2px solid var(--line);border-top-color:var(--accent);
 border-radius:50%;animation:spin .7s linear infinite}
@@ -1095,6 +1101,34 @@ let PATHS={};                 // library root / db / inbox, from /api/paths
 let bookSort={key:'title',dir:1};
 const SEL=new Set();          // selected book paths, survives re-render + filter
 
+// The name a row actually shows. Most books show the file name, but a
+// magazine filed as "165.pdf" shows its publication name instead -- sorting on
+// the raw title put those 286 rows under "001".."286" while the list on screen
+// read "Popular Woodworking ...", which is what made the order look scrambled.
+function bookName(x){ return (x.pub||x.title||'').trim(); }
+
+// Alphabetical order that reads like the list: digit runs compare as numbers,
+// so "No. 9" comes before "No. 10" and "No. 209" lands in the 200s instead of
+// between 20 and 21. Hand-rolled rather than Intl.Collator because the list has
+// to sort identically in every browser locale.
+function natKey(s){
+  return String(s||'').toLowerCase().split(/(\d+)/)
+    .map(p=>/^\d+$/.test(p)? +p : p)
+    .filter(p=>p!=='');
+}
+function natCmp(a,b){
+  const A=natKey(a),B=natKey(b),n=Math.min(A.length,B.length);
+  for(let i=0;i<n;i++){
+    const x=A[i],y=B[i];
+    if(x===y)continue;
+    const dx=typeof x==='number',dy=typeof y==='number';
+    if(dx&&dy)return x<y?-1:1;
+    if(dx!==dy)return dx?-1:1;   // a bare number before a word: "001" first
+    return x<y?-1:1;
+  }
+  return A.length-B.length;
+}
+
 // The search box advertises how much is searchable, so it has to follow every
 // add / re-index / OCR / delete — including ones running in the background
 // while the user is on another tab.
@@ -1117,7 +1151,19 @@ async function loadPaths(){
     PATHS=await api('/api/paths')||{};
     const el=$('#dropPath');
     if(el&&PATHS.inbox)el.textContent='Drop folder: '+PATHS.inbox;
+    scanBtnState();
   }catch(e){}
+}
+
+// The button must reflect "a scan is in flight", not "I clicked it".
+function scanBtnState(){
+  const b=$('#scanLib'); if(!b)return;
+  const busy=!!(PATHS.scan&&PATHS.scan.running);
+  b.classList.toggle('busy',busy);
+  b.disabled=busy;
+  b.textContent=busy?'Scanning library':'Scan whole library';
+  b.title=busy?'A library scan is running - this stays pressed until it finishes'
+             :'Walk the whole library folder and index every PDF that is not in the index yet';
 }
 
 // Selection changes must NOT redraw 425 rows: that destroys the checkbox the
@@ -1138,7 +1184,9 @@ function filterBooks(){
   const pg=$('#bPages').value;
   const dp=$('#bDup').value;
   let rows=BOOKS.filter(x=>{
-    if(q && !(x.title||'').toLowerCase().includes(q)
+    // Search the name the row shows, so a magazine filed as "165.pdf" is
+    // findable by the publication name printed on the row.
+    if(q && !bookName(x).toLowerCase().includes(q)
           && !(x.collection||'').toLowerCase().includes(q))return false;
     if(st && x.status!==st)return false;
     if(pg){
@@ -1154,7 +1202,7 @@ function filterBooks(){
   const k=bookSort.key,dir=bookSort.dir;
   rows.sort((a,b)=>{
     let va,vb;
-    if(k==='title'){va=(a.title||'').toLowerCase();vb=(b.title||'').toLowerCase();}
+    if(k==='title'){va=bookName(a);vb=bookName(b);}
     else if(k==='collection'){va=(a.collection||'').toLowerCase();vb=(b.collection||'').toLowerCase();}
     else if(k==='year'){va=a.year||0;vb=b.year||0;}
     else if(k==='pages'){va=a.pages||0;vb=b.pages||0;}
@@ -1164,8 +1212,16 @@ function filterBooks(){
     // so the oldest/newest book is where you expect it in both directions.
     const ma=(va===0||va===''||va==null), mb=(vb===0||vb===''||vb==null);
     if(ma||mb){ if(ma&&mb)return 0; return ma?1:-1; }
-    if(va<vb)return -dir; if(va>vb)return dir;
-    return (a.title||'').toLowerCase()<(b.title||'').toLowerCase()?-1:1;
+    if(k==='title'){
+      const c=natCmp(va,vb);
+      if(c)return dir*c;
+    }else{
+      if(va<vb)return -dir; if(va>vb)return dir;
+    }
+    // Same name on both sides: fall back to the file so the order is stable
+    // across re-renders, then to the full path to break any remaining tie.
+    const t=natCmp(bookName(a),bookName(b)); if(t)return t;
+    return (a.file||'')<(b.file||'')?-1:((a.file||'')>(b.file||'')?1:0);
   });
   return rows;
 }
@@ -1420,8 +1476,11 @@ es.onmessage=e=>{
   // the header count must track background indexing on any tab
   if(!statTimer){statTimer=setTimeout(()=>{statTimer=null;refreshPageCount();},1500);}
   if(currentTab==='health'&&!healthTimer){healthTimer=setTimeout(()=>{healthTimer=null;loadHealth();},2000);}
+  // the scan button has to come back the moment the scan ends, not on reload
+  if(!pathTimer){pathTimer=setTimeout(()=>{pathTimer=null;loadPaths();},2000);}
 };
 let healthTimer=null;
+let pathTimer=null;
 
 $('#ocrAll').onclick=async()=>{
   const r=await post('/api/ocr_all',null,$('#ocrAll')).catch(e=>{toast(e.message,'bad');});
@@ -1443,6 +1502,7 @@ $('#rescan').onclick=async()=>{
 $('#scanLib').onclick=async()=>{
   const r=await post('/api/scan_library',null,$('#scanLib')).catch(e=>{toast(e.message,'bad');});
   if(r){toast(r.started?'Scanning the whole library – new PDFs appear in the log':'A library scan is already running',r.started?'good':'');loadJobs();}
+  await loadPaths();            // press the button for the whole run
 };
 $('#dupFix').onclick=async()=>{
   const r=await post('/api/dup_fix',null,$('#dupFix')).catch(e=>{toast(e.message,'bad');});
