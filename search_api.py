@@ -274,20 +274,45 @@ def _pass_filters(c, rowids, coll, ymin, ymax):
     return ok
 
 
-def _with_snippets(c, rows):
+def _with_snippets(c, rows, match=None):
     """Attach the highlighted snippet to already-selected rows.
 
     `snippet()` has to run inside a query over the FTS table, so the snippets
     are fetched in one batched second pass instead of being computed for every
     candidate the ranker looked at.
+
+    The MATCH matters more than it looks. FTS5 only knows *which* terms to
+    highlight from the match context of the same statement: queried by rowid
+    alone it has no context, so it silently returns the opening words of the
+    page with nothing marked - the snippet looked plausible but never showed
+    the search term, and nothing errored. With `AND pages MATCH ?` it returns
+    the window around the hit and wraps it in the markers.
+
+    A hybrid page can also be here on the strength of its vector alone, with
+    no FTS match at all; requiring MATCH would drop those rows' snippets
+    entirely, so any id the marked query does not return falls back to the
+    start of the page text.
     """
     if not rows:
         return rows
     ids = [r[0] for r in rows]
     q = ",".join("?" * len(ids))
-    sn = dict(c.execute(
-        f"SELECT rowid,snippet(pages,0,'<mark>','</mark>',' … ',18) "
-        f"FROM pages WHERE rowid IN ({q})", ids).fetchall())
+    sn = {}
+    if match:
+        try:
+            sn = dict(c.execute(
+                f"SELECT rowid,snippet(pages,0,'<mark>','</mark>',' … ',18) "
+                f"FROM pages WHERE rowid IN ({q}) AND pages MATCH ?",
+                ids + [match]).fetchall())
+        except sqlite3.OperationalError:
+            sn = {}
+    missing = [i for i in ids if i not in sn]
+    if missing:
+        q2 = ",".join("?" * len(missing))
+        for rid, txt in c.execute(
+                f"SELECT rowid,text FROM pages WHERE rowid IN ({q2})", missing):
+            flat = re.sub(r"\s+", " ", txt or "").strip()
+            sn[rid] = flat[:160] + (" …" if len(flat) > 160 else "")
     return [r + (sn.get(r[0], ""),) for r in rows]
 
 
@@ -343,7 +368,7 @@ def api_search(q="", allw="", phrase="", anyw="", none="", coll="",
                 rows = _diversify(_fetch_rows(
                     c, [rid for rid, _ in ranked[:fetch]]))
             total = c.execute(f"SELECT COUNT(*) {base}", p).fetchone()[0]
-            rows = _with_snippets(c, rows[offset:offset + limit])
+            rows = _with_snippets(c, rows[offset:offset + limit], m)
             mode = "hybrid"
         elif sort == "relevance":
             # Past the fused pool, or with no semantic layer: plain bm25. The
@@ -367,14 +392,14 @@ def api_search(q="", allw="", phrase="", anyw="", none="", coll="",
                 fetch = nxt
             total = c.execute(f"SELECT COUNT(*) {base}", p).fetchone()[0]
             rows = rows[offset:offset + limit]
-            rows = _with_snippets(c, rows)
+            rows = _with_snippets(c, rows, m)
             mode = "hybrid-tail" if ranked is not None else "keyword"
         else:
             rows = c.execute(
                 sel + f"{base} ORDER BY {order} LIMIT ? OFFSET ?",
                 p + [limit, offset]).fetchall()
             total = c.execute(f"SELECT COUNT(*) {base}", p).fetchone()[0]
-            rows = _with_snippets(c, rows)
+            rows = _with_snippets(c, rows, m)
             mode = sort
     except sqlite3.OperationalError as e:
         c.close()

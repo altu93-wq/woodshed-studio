@@ -74,6 +74,10 @@ border-radius:14px;padding:3px 10px;cursor:pointer;user-select:none}
 .hit .t .yr{color:var(--accent2);font-size:11.5px;font-weight:600;white-space:nowrap}
 .hit .m{font-size:11.5px;color:var(--dim);margin:2px 0 5px}
 .hit .s{font-size:13px;color:#c2c4c8;line-height:1.45}
+/* FTS5 wraps the search terms in <mark>. The browser default is a solid
+   yellow block, which shouts against the dark panel; tint it with the
+   theme's --mark colour so it reads as a highlight, not an alarm. */
+.hit .s mark{background:rgba(216,195,124,.16);color:var(--mark);font-weight:600;border-radius:3px;padding:0 2px}
 .hit mark{background:transparent;color:var(--mark);font-weight:700}
 .hit .pg{color:var(--accent2);font-size:11.5px;white-space:nowrap;padding:1px 7px;background:var(--field);border-radius:6px;border:1px solid var(--line)}
 .hit-actions{margin-top:7px;display:flex;gap:8px;font-size:12px}
