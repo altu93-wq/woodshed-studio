@@ -24,6 +24,12 @@ INBOX = store.INBOX                           # real drop folder
 HTML = os.path.join(HERE, "studio.html")
 VIEWER = os.path.join(HERE, "viewer.html")
 VENDOR = os.path.join(HERE, "vendor")
+LOGO = os.path.join(HERE, "logo.png")         # wordmark + favicon
+
+# One version string for the whole app. The banner prints it, the HTTP server
+# answers with it, and studio.html carries the placeholder __VERSION__, which
+# _page() swaps in as the file is served - so bumping the release is this line.
+VERSION = "2.0"
 LOGDIR = os.path.join(HERE, "logs")
 PORT = 8766
 
@@ -719,7 +725,7 @@ def _inline_pdf_name(path):
 
 
 class H(BaseHTTPRequestHandler):
-    server_version = "WoodshedStudio/2.0"
+    server_version = "WoodshedStudio/" + VERSION
     def log_message(self, *a):
         pass
     def _send(self, obj, code=200, ctype="application/json"):
@@ -745,6 +751,25 @@ class H(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    # HTML with __VERSION__ resolved. Read per request, like _static, so an
+    # edited page shows up after a restart; the substitution is a single
+    # bytes.replace on a marker that cannot appear in real content.
+    def _page(self, path):
+        try:
+            body = open(path, "rb").read()
+        except OSError:
+            return self._send({"error": "missing " + os.path.basename(path)}, 500)
+        body = body.replace(b"__VERSION__", VERSION.encode("ascii"))
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         try:
             self.wfile.write(body)
@@ -817,9 +842,11 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(u.query)
         g = lambda k, d="": qs.get(k, [d])[0]
         if u.path in ("/", "/index.html"):
-            return self._static(HTML, "text/html; charset=utf-8")
+            return self._page(HTML)
         if u.path == "/viewer.html":
             return self._static(VIEWER, "text/html; charset=utf-8")
+        if u.path in ("/logo.png", "/favicon.ico"):
+            return self._static(LOGO, "image/png")
         if u.path.startswith("/vendor/"):
             name = os.path.basename(u.path)
             if name not in ("pdf.min.js", "pdf.worker.min.js"):
@@ -1444,7 +1471,7 @@ def main():
     ob = start_inbox_watch()
     ip = lan_ip()
     print("====================================================")
-    print("Woodshed Studio Lab v2.0")
+    print("Woodshed Studio Lab v" + VERSION)
     print(f"  > On this PC               : http://localhost:{PORT}")
     print(f"  > On your phone (same Wi-Fi): http://{ip}:{PORT}")
     print("  > Password                 : "
