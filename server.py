@@ -16,7 +16,7 @@ import os, re, json, time, sqlite3, threading, socket, shutil, queue as Queue
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote
 
-import store, ingest, ocr_worker, search_api, vectors
+import store, ingest, ocr_worker, search_api, vectors, titles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INBOX = store.INBOX                           # real drop folder
@@ -291,6 +291,8 @@ def books_payload():
     files, src = library_files(), src_groups()
     c = store.ro()
     years_by_path = book_years()
+    # normcase path -> (pub, pub_src), same cache search results read from.
+    pm = search_api.pub_map()
     jp, jt, marked = {}, {}, set()
     for path, title, status, detail, updated in c.execute(
             "SELECT path,title,status,detail,updated FROM jobs ORDER BY updated DESC"):
@@ -327,6 +329,15 @@ def books_payload():
                      "chars": canon[5], "size": size, "mtime": mtime,
                      "year": years_by_path.get(nk),
                      "dup": len(extras), "dup_paths": [e[2] for e in extras],
+                     # `pub` is the publication name resolved at ingest time
+                     # (a magazine issue stored as `7.pdf`); it is None when
+                     # the filename already named the book, and the Book
+                     # column then shows `title` unchanged.
+                     "pub": (pm.get(nk) or (None, None))[0],
+                     "pub_src": (pm.get(nk) or (None, None))[1],
+                     # `file` is the full path and is used by the delete /
+                     # re-index endpoints; the filename for display is its own key.
+                     "pdf_name": os.path.basename(canon[2] or ""),
                      "collection": canon[0] or "", "in_inbox":
                          nk.startswith(normpath(INBOX) + os.sep)})
         seen.add(nk)
@@ -352,6 +363,13 @@ def books_payload():
                      "status": st, "detail": job[1] if job else "",
                      "chars": 0, "size": size, "mtime": mtime, "year": None,
                      "dup": 0, "dup_paths": [],
+                     # Not indexed yet, so there is no stored pub to read.
+                     # The folder rule is cheap and exact enough to preview
+                     # what the name will be once it is.
+                     "pub": titles.from_folder(
+                         ingest.collection_for(fpath)),
+                     "pub_src": "folder",
+                     "pdf_name": os.path.basename(fpath),
                      "collection": ingest.collection_for(fpath),
                      "in_inbox": nk.startswith(normpath(INBOX) + os.sep)})
     # same book present as "x.pdf" AND "x (1).pdf" in the folder

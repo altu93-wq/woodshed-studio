@@ -556,3 +556,53 @@ at startup forever, so a completed build in another process left the server
 believing there were no vectors. Caching on mtime fixed it, and the whole
 transition is verified by resetting the store mid-session and watching `mode`
 go `hybrid → keyword → hybrid` with no restart.
+
+## Naming a magazine issue
+
+`titles.py` answers "what is this thing called?", the way `years.py` answers
+"which year?". It exists because a run of magazine issues stored as `1.pdf`,
+`2.pdf` ... `200.pdf` has no name anywhere except the folder it sits in.
+
+**Nothing already named gets renamed.** `detect()` returns `None` when the
+filename states a publication, and the UI keeps showing `sources.title`
+exactly as before. Rewriting `Anarchists Tool Chest - Christopher Schwarz`
+into `Anarchists Tool Chest Christopher Schwarz` is a regression, not an
+improvement. On the current 651-book library `titlefix.py` reports **0**
+books to rename, which is the property that makes it safe to run at all.
+
+The derived name lives in `sources.pub` and never overwrites `sources.title`:
+`title` is what `pages.title` and `fwwmap` agree on across 99k page rows, and
+rewriting it would break the link back to the database the archive was
+imported from.
+
+Resolution order, strongest first:
+
+| source | reliability |
+| --- | --- |
+| `folder` - the top-level folder IS the publication | exact, and opens no PDF |
+| `metadata` - the PDF Title field | good on digital PDFs |
+| `masthead` - a known publication name in page 1 | **13%** on a scanned archive |
+| `fallback` - keep the filename, marked | honest |
+
+The masthead rule is weak on purpose, and the measurement says why. Across 230
+scanned Fine Woodworking issues an OCR-tolerant match recovered the name for
+only 31: the masthead is a logo, so OCR mangles it - page one comes out as
+", , , orking Checkered Bowls", with the leading W gone. PDF metadata is no
+better on those files: `title` is empty and `author` holds the scanner's name
+(`Francois Cournoyer`). That is why the folder rule goes first - for a folder
+of numbered issues it opens no PDF at all, and `Fine Woodworking 2025/7.pdf`
+resolves to `Fine Woodworking No. 7` from the folder name alone.
+
+`pub_src` records which rule fired, so a wrong guess is traceable in the audit
+CSV rather than mysterious. `titlefix.py` follows the `yearfix.py` shape: dry
+run by default, a CSV of every proposed change, and a backup before `--apply`.
+
+The year is deliberately not baked into the stored title. The folder rule
+strips a trailing `2025` off `Fine Woodworking 2025` so the UI can show it as
+its own badge; appending it as well printed `Fine Woodworking No. 7 2025`
+directly above a `2025` badge.
+
+`search_api.pub_map()` caches path -> name on `PRAGMA data_version`, not on
+row count. An `UPDATE` leaves `COUNT` and `MAX(rowid)` untouched, so a
+`titlefix.py` run would otherwise keep serving the old names until the server
+was restarted.

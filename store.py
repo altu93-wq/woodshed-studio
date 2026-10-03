@@ -115,7 +115,8 @@ def resolve_path(p):
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sources(
     collection TEXT, title TEXT, path TEXT,
-    pages INT, indexed_pages INT, chars INT, status TEXT);
+    pages INT, indexed_pages INT, chars INT, status TEXT,
+    pub TEXT, pub_src TEXT);
 
 CREATE TABLE IF NOT EXISTS fwwmap(rowid INTEGER PRIMARY KEY, pdf_path TEXT, pdf_page INT);
 
@@ -154,6 +155,15 @@ def init_db():
     try:
         c.execute("PRAGMA journal_mode=WAL")
         c.executescript(SCHEMA)
+        # `pub` is the display title shown in search results and the book list.
+        # It is kept next to `title` rather than overwriting it: `title` stays
+        # the honest filename-derived name (and what `fwwmap`/`pages` agree
+        # on), while `pub` is what the reader should see. `pub_src` records how
+        # it was derived so a wrong guess is traceable instead of mysterious.
+        for col, decl in (("pub", "TEXT"), ("pub_src", "TEXT")):
+            have = {r[1] for r in c.execute("PRAGMA table_info(sources)")}
+            if col not in have:
+                c.execute(f"ALTER TABLE sources ADD COLUMN {col} {decl}")
         c.commit()
     finally:
         c.close()

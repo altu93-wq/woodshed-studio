@@ -132,6 +132,54 @@ def hybrid_reset():
     _VEC.update(stamp=None, ok=False)
 
 
+_PUB = {"map": None, "stamp": None}
+
+
+def pub_map():
+    """normcase path -> (display title, source), cached on sources.
+
+    A journal issue stored as `7.pdf` has a real publication name that the
+    filename cannot give; it is resolved once at ingest time and kept in
+    `sources.pub`. Joining `sources` into every ranked page query would cost
+    a second scan, so the whole table - a few hundred rows - is read once and
+    re-read only when it changes (a book added or re-indexed).
+    """
+    try:
+        c = store.ro()
+        # data_version bumps whenever *another* connection commits, so a
+        # titlefix.py run or a re-index is picked up without a restart.
+        # COUNT/rowid alone would not: an UPDATE leaves both untouched and
+        # the cache would keep serving the old names.
+        stamp = (c.execute("PRAGMA data_version").fetchone()[0],
+                 c.execute("SELECT COUNT(*), COALESCE(MAX(rowid),0) "
+                           "FROM sources").fetchone())
+        c.close()
+    except Exception:
+        return {}
+    if _PUB["map"] is None or _PUB["stamp"] != stamp:
+        try:
+            c = store.ro()
+            m = {}
+            for p, pub, src in c.execute(
+                    "SELECT path,pub,pub_src FROM sources"):
+                if p:
+                    m[os.path.normcase(os.path.abspath(p))] = (pub, src)
+            c.close()
+        except Exception:
+            return {}
+        _PUB["map"] = m
+        _PUB["stamp"] = stamp
+    return _PUB["map"]
+
+
+def display_title(path, fallback):
+    """The name to show: the derived publication name, else the filename."""
+    hit = pub_map().get(os.path.normcase(os.path.abspath(path or "")))
+    if hit and hit[0]:
+        return hit[0], hit[1]
+    return fallback, ("keep" if fallback else "fallback")
+
+
 def _fetch_rows(c, rowids):
     """The display columns for a set of rowids, in the order given.
 
@@ -334,10 +382,16 @@ def api_search(q="", allw="", phrase="", anyw="", none="", coll="",
     facets = ([{"collection": cc, "count": n} for cc, n in c.execute(
         f"SELECT pages.collection,COUNT(*) {base} GROUP BY pages.collection ORDER BY 2 DESC", p)]
         if offset == 0 else [])
-    hits = [{"id": rid, "title": t, "collection": cl, "page": pg,
-             "pdf": bool(fmp or (path and path.lower().endswith(".pdf") and os.path.exists(store.resolve_path(path)))),
-             "year": yy, "snippet": re.sub(r"\s+", " ", sn).strip()}
-            for rid, t, cl, pg, path, yy, fmp, sn in rows]
+    pm = pub_map()
+    hits = []
+    for rid, t, cl, pg, path, yy, fmp, sn in rows:
+        pub, psrc = display_title(fmp or path, t)
+        hits.append({"id": rid, "title": pub or t, "file_title": t,
+                     "pub_src": psrc,
+                     "file": os.path.basename(fmp or path or ""),
+                     "collection": cl, "page": pg,
+                     "pdf": bool(fmp or (path and path.lower().endswith(".pdf") and os.path.exists(store.resolve_path(path)))),
+                     "year": yy, "snippet": re.sub(r"\s+", " ", sn).strip()})
     c.close()
     return {"hits": hits, "total": total, "facets": facets,
             "offset": offset, "limit": limit, "match": m, "sort": sort,

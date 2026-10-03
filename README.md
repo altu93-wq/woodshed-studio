@@ -23,6 +23,10 @@ goes into a database you own.
   index themselves; **Scan whole library** walks the entire tree, so an archive
   you never reorganised works as-is. Scanned books are detected and flagged
   `image-only`, then unlocked with one-click OCR.
+- **Names that mean something** — a magazine issue stored as `7.pdf` is shown
+  as `Fine Woodworking No. 7`, worked out from the folder it sits in. The PDF
+  filename always stays visible underneath so a result is never a guess you
+  cannot check.
 - **Health** — real counts, index coverage, duplicate detection, the OCR queue,
   semantic-vector coverage and a live log.
 
@@ -162,6 +166,7 @@ libraries — point `WOOD_ROOT` somewhere else and nothing is shared.
 | `years.py`, `yearfind.py`, `yearfix.py` | publication-year detection and repair |
 | `lexicon.py` | US/UK spelling, Turkish-to-English term seeds |
 | `build_concepts.py` | rebuilds the topic-tag embedding layer (per library) |
+| `titles.py`, `titlefix.py` | publication name for a book; repair pass for already-indexed ones |
 | `fwwfix.py` | one-off repair for archives imported from another database |
 | `studio.html`, `viewer.html`, `vendor/` | UI; PDF.js is vendored (Apache-2.0, see [`vendor/README.md`](vendor/README.md)) so it works offline |
 

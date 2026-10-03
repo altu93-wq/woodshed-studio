@@ -597,12 +597,16 @@ function appendHits(hits){
   $('#more')&&$('#more').remove();
   const html=hits.map(h=>{
     const hasPdf=!!h.pdf;
+    // Title line: publication name + page/year badges. Second line: the PDF
+    // filename, so a hit in `7.pdf` can always be traced back to the file.
+    const src=h.file||'';
     return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(h.title)}">
       <div class="t">
         <span>${esc(h.title)}</span>
+        ${h.year?'<span class="yr">'+h.year+'</span>':''}
         <span class="pg">${hasPdf?'📄 ':''}p.${esc(h.page)}</span>
       </div>
-      <div class="m">${h.year?'<span class="yr">'+h.year+'</span>':''}${h.publisher?' · '+esc(h.publisher):''}</div>
+      ${src?`<div class="m" title="${esc(src)}">📄 ${esc(src)}</div>`:''}
       <div class="s">${h.snippet}</div>
       <div class="hit-actions">
         ${hasPdf?`<a class="hit-btn" href="/viewer.html?id=${h.id}&page=${esc(h.page)}" target="_blank" onclick="event.stopPropagation()">↗ Open PDF (p.${esc(h.page)})</a>`:''}
@@ -1161,12 +1165,20 @@ function filterBooks(){
 // ".pdf" on the end) was pure noise. Only show one when it adds something:
 // a job detail, a missing-file warning, or a name that genuinely differs.
 function bookSubline(x){
-    const fn=(x.file||'').split(/[\\/]/).pop()||'';
+    const fn=x.pdf_name||(x.file||'').split(/[\\/]/).pop()||'';
     const stem=fn.replace(/\.pdf$/i,'');
-    const same=stem.trim().toLowerCase()===(x.title||'').trim().toLowerCase();
-    if(!x.detail&&same&&x.exists)return '';
-    const txt=x.detail||(same?fn:fn);
-    return `<span class="bk-sub" title="${esc(x.file)}">${x.exists?'':'file missing · '}${esc(txt)}</span>`;
+    // The heading is the publication name when one was resolved (`pub`), else
+    // the filename stem. The PDF filename goes underneath either way so a row
+    // can always be traced back to the file on disk - it is shown next to the
+    // status detail, not instead of it.
+    const shown=(x.pub||x.title||'').trim().toLowerCase();
+    const same=stem.trim().toLowerCase()===shown;
+    const bits=[];
+    if(!x.exists)bits.push('file missing');
+    if(!same)bits.push(fn);
+    if(x.detail)bits.push(x.detail);
+    if(!bits.length)return '';
+    return `<span class="bk-sub" title="${esc(x.file)}">${esc(bits.join(' · '))}</span>`;
 }
 
 function renderBooks(){
@@ -1202,8 +1214,8 @@ function renderBooks(){
   $('#jobs').innerHTML=rows.map((x,i)=>`<tr>
     <td><input type="checkbox" class="bSel" data-sel="${esc(x.file)}"${SEL.has(x.file)?' checked':''}></td>
     <td>${x.exists&&/[^\\/]$/i.test(x.file)&&x.indexed_pages
-        ?`<a class="bk-title" href="/rawfile?path=${encodeURIComponent(x.file)}" target="_blank" rel="noopener" title="Open ${esc(x.file)} in a new tab">${esc(x.title)}</a>`
-        :`<span class="bk-title">${esc(x.title)}</span>`}${x.dup?`<span class="badge-dup" title="${esc(x.dup_paths.join('\n'))}">×${x.dup+1} indexed</span>`:''}${x.copies&&!x.dup_of?`<span class="badge-dup" title="${esc(x.dup_files.join('\n'))}">×${x.copies} files</span>`:''}${x.dup_of?`<span class="badge-dup" title="${esc(x.file)}">copy of “${esc(x.dup_of.slice(0,30))}”</span>`:''}
+        ?`<a class="bk-title" href="/rawfile?path=${encodeURIComponent(x.file)}" target="_blank" rel="noopener" title="Open ${esc(x.file)} in a new tab">${esc(x.pub||x.title)}</a>`
+        :`<span class="bk-title">${esc(x.pub||x.title)}</span>`}${x.dup?`<span class="badge-dup" title="${esc(x.dup_paths.join('\n'))}">×${x.dup+1} indexed</span>`:''}${x.copies&&!x.dup_of?`<span class="badge-dup" title="${esc(x.dup_files.join('\n'))}">×${x.copies} files</span>`:''}${x.dup_of?`<span class="badge-dup" title="${esc(x.file)}">copy of “${esc(x.dup_of.slice(0,30))}”</span>`:''}
       ${bookSubline(x)}</td>
     <td>${x.year?String(x.year):'—'}</td>
     <td>${x.pages?`${(x.indexed_pages||0).toLocaleString()}/${x.pages.toLocaleString()}`:'—'}</td>

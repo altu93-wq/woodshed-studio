@@ -8,7 +8,7 @@ title=filename.  Writes via store.Writer into the index.db.
 does not have to be assembled inside one drop folder.
 """
 import os, time
-import years, store
+import years, titles, store
 
 ROOT = store.ROOT
 MIN_PAGE_CHARS = 40
@@ -94,6 +94,23 @@ def extract_pdf(path):
             pass
         return None, f"extract-error:{e}"
 
+def _meta_title(path):
+    """The PDF's own Title field, or '' if it cannot be read.
+
+    Best-effort by design: a PDF with an unreadable xref still indexes its
+    text, and a missing Title just means the folder rule decides the name.
+    """
+    try:
+        import fitz
+        d = fitz.open(path)
+        try:
+            return (d.metadata or {}).get("title") or ""
+        finally:
+            d.close()
+    except Exception:
+        return ""
+
+
 def index_file(path, writer, on_event):
     """Full ingest of one PDF. Returns (status, detail)."""
     abspath = os.path.abspath(path)
@@ -122,11 +139,17 @@ def index_file(path, writer, on_event):
     ratio = (nreal / npages) if npages else 0
     status = "image-only" if ratio < IMG_ONLY_RATIO else "indexed"
     on_event("indexing", title, f"{nreal}/{npages} text pages")
+    ordered = sorted(real, key=lambda r: r[0])
+    head = " ".join(p for _, p in ordered[:6])
+    tail = " ".join(p for _, p in ordered[-4:])
+    y = years.book_year(title, head, tail)
+    # Display title, resolved once for both branches below. A magazine issue
+    # stored as `7.pdf` gets its publication name here; a book whose filename
+    # already names it comes back as None and keeps the plain filename title.
+    pub, pub_src = titles.detect(
+        abspath, collection=collection, meta_title=_meta_title(abspath),
+        head_text=ordered[0][1] if ordered else "", year=y)
     if status == "indexed":
-        ordered = sorted(real, key=lambda r: r[0])
-        head = " ".join(p for _, p in ordered[:6])
-        tail = " ".join(p for _, p in ordered[-4:])
-        y = years.book_year(title, head, tail)
         def _ok(c):
             c.executemany("INSERT INTO pages(text,collection,title,page,path)"
                           " VALUES(?,?,?,?,?)",
@@ -136,16 +159,22 @@ def index_file(path, writer, on_event):
             c.executemany("INSERT OR REPLACE INTO pyear VALUES(?,?)",
                           [(r, y) for r in rids])
             chars = sum(len(p) for _, p in real)
-            c.execute("INSERT INTO sources VALUES(?,?,?,?,?,?,?)",
-                      (collection, title, abspath, npages, nreal, chars, status))
+            c.execute("INSERT INTO sources"
+                      "(collection,title,path,pages,indexed_pages,chars,status,"
+                      "pub,pub_src) VALUES(?,?,?,?,?,?,?,?,?)",
+                      (collection, title, abspath, npages, nreal, chars, status,
+                       pub, pub_src))
             c.execute("INSERT OR REPLACE INTO jobs(path,title,status,detail,updated)"
                       " VALUES(?,?,?,?,?)",
                       (abspath, title, "done", f"{nreal}/{npages}p year={y}", time.time()))
         writer.submit(_ok)
         return "done", f"{nreal}/{npages}p year={y}"
     def _img(c):
-        c.execute("INSERT INTO sources VALUES(?,?,?,?,?,?,?)",
-                  (collection, title, abspath, npages, nreal, 0, status))
+        c.execute("INSERT INTO sources"
+                  "(collection,title,path,pages,indexed_pages,chars,status,"
+                  "pub,pub_src) VALUES(?,?,?,?,?,?,?,?,?)",
+                  (collection, title, abspath, npages, nreal, 0, status,
+                   pub, pub_src))
         c.execute("INSERT OR REPLACE INTO jobs(path,title,status,detail,updated)"
                   " VALUES(?,?,?,?,?)",
                   (abspath, title, "image-only",

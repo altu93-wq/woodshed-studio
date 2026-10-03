@@ -158,6 +158,23 @@ Each hit shows the title, the page number, the year if known, a highlighted
 snippet, and which collections it came from. Clicking the title opens the real
 PDF at that page.
 
+Beneath the title is the **PDF filename**, always. For most books the title and
+the filename are the same thing; for a magazine issue stored as `7.pdf` the
+title line shows the publication it belongs to (`Fine Woodworking No. 7`) and
+the line below shows the file, so a result is always traceable back to disk.
+
+How that title is found, strongest first:
+
+1. **the file already names it** — nothing changes, the filename is the title
+2. **the folder name** — `Fine Woodworking 2025/7.pdf` → `Fine Woodworking No. 7`
+3. **the PDF's own Title field**
+4. **a masthead read from page 1** — unreliable on scans, so it is tried last
+5. **nothing found** — the filename is kept
+
+The year is shown as its own badge next to the title rather than being written
+into it, so `Fine Woodworking 2025` reads as a name plus a year, not as one
+long string.
+
 Results are ranked **hybrid** when the semantic layer is ready and plain keyword
 when it is not. You can tell which from the badge next to the result count.
 Sorting can be forced to *Title A–Z*, *Newest first* or *Oldest first* — useful
@@ -226,6 +243,9 @@ between "what is on disk" and "what I can search" is visible immediately.
 **Sorting** is per column; the checkbox in the header selects every row the
 filters are currently showing. Ticking a row never redraws the table, so
 multi-select does not drop clicks.
+
+The **Book** column shows the publication name when one could be worked out
+(see Searching), and the PDF filename underneath it.
 
 ### Re-indexing
 
