@@ -240,7 +240,12 @@ _SHOUT = re.compile(r"(^|[\s\-\u2013\u2014(/&])([A-Z]{4,})(?=$|[\s\-\u2013\u2014
 
 
 def display_name(s):
-    """The name to show a person. Never use it to look anything up."""
+    """The name to show a person. Never use it to look anything up.
+
+    Note that this can return "" - a file called "_vk_com_.pdf" is nothing but
+    a download-site mark. Callers showing the result must fall back to `s`:
+    a blank name is worse than an untidy one.
+    """
     t = (s or "").strip()
     if not t:
         return t

@@ -108,6 +108,15 @@ def main():
     ok(not new_imb, "temizlik yeni parantez dengesizligi uretmiyor",
        "\n".join(new_imb[:3]))
 
+    # Cleaning must never erase a name. A file called "_vk_com_.pdf" or
+    # "{ABCDEF}.pdf" is nothing but residue, and display_name() returns "" for
+    # it - which is why every caller shows `display_name(x) or x`. Check the
+    # fallback here so the pattern cannot quietly disappear.
+    degenerate = ["vk_com", "-ne", "{ABCDEF}", "____", "( )", "_", "  "]
+    lost = [s for s in degenerate if not (titles.display_name(s) or s)]
+    ok(not lost, "temizlenince bosalan isim ham haliyle gorunur",
+       "kayip: %r" % lost)
+
     changed = sum(1 for n, o in zip(names, out) if n != o)
     print("\n=== istatistik ===")
     print("  degisen        : %d / %d (%d%%)"

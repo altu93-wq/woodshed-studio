@@ -181,8 +181,11 @@ def display_title(path, fallback):
     """
     hit = pub_map().get(os.path.normcase(os.path.abspath(path or "")))
     if hit and hit[0]:
-        return titles.display_name(hit[0]), hit[1]
-    return titles.display_name(fallback), ("keep" if fallback else "fallback")
+        # `or hit[0]`: cleaning a name that is nothing but a download mark
+        # leaves nothing, and a blank heading helps nobody.
+        return titles.display_name(hit[0]) or hit[0], hit[1]
+    return ((titles.display_name(fallback) or fallback),
+            ("keep" if fallback else "fallback"))
 
 
 def _fetch_rows(c, rowids):
@@ -416,7 +419,7 @@ def api_search(q="", allw="", phrase="", anyw="", none="", coll="",
     hits = []
     for rid, t, cl, pg, path, yy, fmp, sn in rows:
         pub, psrc = display_title(fmp or path, t)
-        hits.append({"id": rid, "title": pub or titles.display_name(t),
+        hits.append({"id": rid, "title": pub or titles.display_name(t) or t,
                      "file_title": t,
                      "pub_src": psrc,
                      "file": os.path.basename(fmp or path or ""),

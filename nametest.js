@@ -147,7 +147,16 @@ const dupes = [...byKey.entries()].filter(([, n]) => n > 1);
 console.log('  aynı temiz ada düşen isim: ' + dupes.length + ' küme (' +
             dupes.reduce((s, [, n]) => s + n, 0) + ' kitap)');
 
-// 13 İki uygulama aynı mı? titles.display_name() (sunucu) ile prettyName()
+// 13 Temizleme bir ismi silmemeli. "_vk_com_.pdf" gibi bir dosya tamamen
+// kalıntıdan ibaret ve prettyName() "" döndürür; bu yüzden her çağıran
+// `prettyName(x) || x` yazmak zorunda. Örüntünün sessizce kaybolmaması için
+// fallback'in burada çalıştığını doğrula.
+const degenerate = ['vk_com', '-ne', '{ABCDEF}', '____', '( )', '_', '  '];
+const lostDegenerate = degenerate.filter(s => !(prettyName(s) || s));
+ok(lostDegenerate.length === 0, 'temizlenince boşalan isim ham haliyle görünür',
+   'kayıp: ' + JSON.stringify(lostDegenerate));
+
+// 14 İki uygulama aynı mı? titles.display_name() (sunucu) ile prettyName()
 // (arayüz) aynı kuralı iki kez yazıyor. Ayrışırlarsa aynı kitap ekrana
 // göre iki isimle çıkar. _expect.json, `py -3 nametest.py` çıktısıdır.
 let pyChecked = false;

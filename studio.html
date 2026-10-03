@@ -616,9 +616,12 @@ function appendHits(hits){
     // Title line: publication name + page/year badges. Second line: the PDF
     // filename, so a hit in `7.pdf` can always be traced back to the file.
     const src=h.file||'';
-    return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(prettyName(h.title))}">
+    // Same rule as bookName(): a name that cleans away to nothing keeps its
+    // raw form rather than rendering as a blank line.
+    const ht=prettyName(h.title)||h.title||'';
+    return `<div class="hit" data-id="${h.id}" data-pdf="${hasPdf}" data-pg="${esc(h.page)}" data-title="${esc(ht)}">
       <div class="t">
-        <span>${esc(prettyName(h.title))}</span>
+        <span>${esc(ht)}</span>
         <span class="tr">${h.year?'<span class="yr">'+h.year+'</span>':''}<span class="pg">${hasPdf?'📄 ':''}p.${esc(h.page)}</span></span>
       </div>
       ${src?`<div class="m" title="${esc(src)}">📄 ${esc(src)}</div>`:''}
@@ -1138,7 +1141,13 @@ function prettyName(s){
   t=t.replace(/\((?=\()/g,'').replace(/\)(?=\))/g,'');
   return t;
 }
-function bookName(x){ return prettyName(x.pub||x.title||''); }
+function bookName(x){
+  // Cleaning is meant to make a name readable, never to erase it: a file
+  // called "_vk_com_.pdf" cleans to nothing, and a blank Book column is worse
+  // than an ugly one. Fall back to the raw name.
+  const raw=(x.pub||x.title||'').trim();
+  return prettyName(raw)||raw;
+}
 
 // Alphabetical order that reads like the list: digit runs compare as numbers,
 // so "No. 9" comes before "No. 10" and "No. 209" lands in the 200s instead of
@@ -1218,8 +1227,10 @@ function filterBooks(){
   const dp=$('#bDup').value;
   let rows=BOOKS.filter(x=>{
     // Search the name the row shows, so a magazine filed as "165.pdf" is
-    // findable by the publication name printed on the row.
+    // findable by the publication name printed on the row - but also the name
+    // as it sits on disk, so pasting part of a real filename still works.
     if(q && !bookName(x).toLowerCase().includes(q)
+          && !(x.pdf_name||'').toLowerCase().includes(q)
           && !(x.collection||'').toLowerCase().includes(q))return false;
     if(st && x.status!==st)return false;
     if(pg){

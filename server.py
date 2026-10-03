@@ -372,6 +372,7 @@ def books_payload():
         canon = entries[0]
         extras = entries[1:]
         job = jp.get(nk)
+        hit = pm.get(nk) or (None, None)
         st = canon[6]
         if nk in marked:
             st = "duplicate"          # merged away: extra copy, ignored by rescan
@@ -389,7 +390,7 @@ def books_payload():
         # exact stored title is not needed by anything downstream - `file` and
         # `pdf_name` carry the real name for tracing back to the PDF - and the
         # job lookup above matches on the raw title, before this.
-        rows.append({"title": titles.display_name(canon[1]),
+        rows.append({"title": titles.display_name(canon[1]) or canon[1],
                      "file": canon[2], "exists": exists,
                      "pages": canon[3], "indexed_pages": canon[4],
                      "status": st, "detail": job[1] if job else "",
@@ -401,9 +402,8 @@ def books_payload():
                      # the filename already named the book, and the Book
                      # column then shows `title`. Both are display names by
                      # the time they leave here - see the note on `title`.
-                     "pub": titles.display_name(
-                         (pm.get(nk) or (None, None))[0]),
-                     "pub_src": (pm.get(nk) or (None, None))[1],
+                     "pub": titles.display_name(hit[0]) or hit[0],
+                     "pub_src": hit[1],
                      # `file` is the full path and is used by the delete /
                      # re-index endpoints; the filename for display is its own key.
                      "pdf_name": os.path.basename(canon[2] or ""),
@@ -427,7 +427,8 @@ def books_payload():
             size, mtime = s.st_size, s.st_mtime
         except OSError:
             size, mtime = 0, 0
-        rows.append({"title": titles.display_name(title), "file": fpath, "exists": True,
+        rows.append({"title": titles.display_name(title) or title,
+                     "file": fpath, "exists": True,
                      "pages": 0, "indexed_pages": 0,
                      "status": st, "detail": job[1] if job else "",
                      "chars": 0, "size": size, "mtime": mtime, "year": None,
