@@ -102,11 +102,19 @@ def index_file(path, writer, on_event):
     on_event("extracting", title, "reading pages with PyMuPDF")
     pages, err = extract_pdf(abspath)
     if pages is None:
+        # A failed PDF gets a `jobs` row but NO `sources` row, on purpose.
+        # `server.indexed_paths()` treats every `sources` path as already
+        # indexed, and both the watcher and `_new_pdfs()` skip those. Writing
+        # a 0-page `sources` row here therefore marked the file as done for
+        # good: a PDF caught half-copied during a bulk import stayed a silent
+        # 0-page book and was never retried, even after the copy finished.
+        # Staying out of `sources` leaves it visible as "not indexed", so the
+        # next scan tries it again - which is what you want for a truncated
+        # file, and harmless for one that is genuinely broken (the `jobs` row
+        # still records why it failed).
         def _fail(c):
             c.execute("INSERT OR IGNORE INTO jobs(path,title,status,detail,updated)"
                       " VALUES(?,?,?,?,?)", (abspath, title, "failed", err, time.time()))
-            c.execute("INSERT INTO sources VALUES(?,?,?,?,?,?,?)",
-                      (collection, title, abspath, 0, 0, 0, err))
         writer.submit(_fail)
         return "failed", err
     real = [(i + 1, p) for i, p in enumerate(pages) if len(p.strip()) >= MIN_PAGE_CHARS]
