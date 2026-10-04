@@ -36,6 +36,26 @@ def load_config():
 
 
 CFG = load_config()
+_CFG_MTIME = None
+
+
+def _cfg_fresh():
+    """Pick up a hand-edited config.json without a restart.
+
+    A stat per call is cheap next to the request it rides on, and it is the
+    difference between "edit the file, restart the server" and "edit the file".
+    Without it, deleting config.json to remove a password would look like it
+    worked while the running server carried on demanding it.
+    """
+    global CFG, _CFG_MTIME
+    try:
+        m = os.path.getmtime(CONFIG_PATH)
+    except OSError:
+        m = None
+    if m != _CFG_MTIME:
+        CFG = load_config()
+        _CFG_MTIME = m
+    return CFG
 
 
 def _setting(env, key, default):
@@ -57,7 +77,45 @@ def password():
     delete from the index, start OCR or write files, so being able to open the
     page has to mean being allowed to do that.
     """
+    _cfg_fresh()
     return _setting("WOOD_PASSWORD", "password", "")
+
+
+def password_source():
+    """Which of the three sources is actually deciding the password.
+
+    "env" means config.json is being ignored, so a password saved from the
+    Health tab would look saved and do nothing - the UI has to be able to say
+    that out loud instead of quietly pretending it worked.
+    """
+    if os.environ.get("WOOD_PASSWORD"):
+        return "env"
+    if _cfg_fresh().get("password"):
+        return "config"
+    return "none"
+
+
+def set_password(value):
+    """Write or clear the password in config.json, effective immediately.
+
+    Re-reads the file first so it merges into whatever is already in there
+    (library_root, inbox, ...) instead of replacing it, and writes through a
+    temp file + os.replace so a crash mid-write cannot leave a half-written
+    config that fails to parse on the next start.
+    """
+    global CFG, _CFG_MTIME
+    value = str(value or "").strip()
+    cfg = load_config()
+    cfg["password"] = value
+    tmp = CONFIG_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.replace(tmp, CONFIG_PATH)
+    CFG = cfg            # no restart: the next request already sees this
+    _CFG_MTIME = os.path.getmtime(CONFIG_PATH)
+    return {"ok": True, "password_set": bool(value),
+            "source": password_source(), "stored_in": CONFIG_PATH}
 
 
 def _auto_root():

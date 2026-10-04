@@ -25,10 +25,19 @@ h1 span{color:var(--accent)}
 #q{flex:1;min-width:200px;background:var(--field);border:1px solid var(--line);color:var(--ink);
 border-radius:8px;padding:9px 13px;font-size:15px;outline:none}
 #q:focus{border-color:var(--accent)}
-select,input[type=number]{background:var(--field);border:1px solid var(--line);color:var(--ink);
+select,input[type=number],input[type=password]{background:var(--field);border:1px solid var(--line);color:var(--ink);
 border-radius:8px;padding:8px 10px;font-size:13px;outline:none}
 .lnk{color:var(--dim);font-size:13px;cursor:pointer;white-space:nowrap;user-select:none}
 .lnk:hover{color:var(--accent)}
+
+/* Password box: the one place the shared secret can be created or cleared. */
+.pbox{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.pwrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px}
+.pwrow input{flex:1;min-width:190px}
+#pwMsg{margin-top:7px}
+#pwMsg.bad{color:var(--bad)}
+#pwMsg.good{color:var(--accent2)}
+#pwMsg.warn{color:var(--mark)}
 
 /* Tab switcher */
 .tabs{display:inline-flex;gap:4px;background:var(--field);padding:3px;border-radius:8px;border:1px solid var(--line)}
@@ -483,6 +492,17 @@ color:#9fa3aa;height:340px;overflow:auto;white-space:pre-wrap;margin-top:10px}
         <div class="rowbar" id="embedBtns" style="display:none;margin-top:10px"></div>
         <div class="eyebrow" style="margin:14px 0 6px">Activity log</div>
         <div id="log"><span class="hint">Nothing has happened since the server started.</span></div>
+        <div class="eyebrow" style="margin:18px 0 6px">Password</div>
+        <div id="pwBox" class="pbox">
+          <div class="hint" id="pwState">Checking…</div>
+          <div class="pwrow">
+            <input id="pw1" type="password" placeholder="New password (6+ characters)" autocomplete="new-password">
+            <input id="pw2" type="password" placeholder="Type it again" autocomplete="new-password">
+            <button class="act" id="pwSave">Set password</button>
+            <button class="act subtle" id="pwClear" style="display:none">Remove</button>
+          </div>
+          <div class="hint" id="pwMsg"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -547,6 +567,11 @@ function goHome(){
   q.focus();
 }
 $('#home').onclick=goHome;
+$('#pwSave').onclick=savePassword;
+$('#pwClear').onclick=clearPassword;
+// Enter in either field saves, so the form does not need the mouse.
+$('#pw1').addEventListener('keydown',e=>{if(e.key==='Enter')savePassword();});
+$('#pw2').addEventListener('keydown',e=>{if(e.key==='Enter')savePassword();});
 
 // Mobile navigation
 function switchMobileView(view){
@@ -1427,6 +1452,56 @@ async function loadJobs(){
   renderBooks();
 }
 
+// --- password ------------------------------------------------------------
+// One shared secret for the whole app: whoever knows it can reach every
+// /api endpoint, which includes deleting from the index. It is stored in
+// config.json and takes effect on the next request - no restart, no other
+// client has to be told to log in again.
+function pwMsg(t,cls){const m=$('#pwMsg');m.textContent=t||'';m.className='hint'+(cls?' '+cls:'');}
+function renderPw(h){
+  const set=!!h.password_set, env=h.password_source==='env';
+  $('#pwState').textContent = set
+    ? 'Every request needs this password. It currently comes from '+(env
+        ? 'the WOOD_PASSWORD environment variable, which overrides config.json.'
+        : 'config.json.')+' Anyone who has it can search, and can also delete from the index, run OCR or write files.'
+    : 'No password is set. Anyone who can reach this machine can open the library, and with it run every API action - including deleting from the index.';
+  $('#pwSave').textContent = set ? 'Change password' : 'Set password';
+  $('#pwClear').style.display = set ? '' : 'none';
+  pwMsg('');
+}
+async function savePassword(){
+  const a=$('#pw1').value, b=$('#pw2').value;
+  if(!a) return pwMsg('Type a password first.','bad');
+  if(a.length<6) return pwMsg('Use at least 6 characters.','bad');
+  if(a!==b) return pwMsg('The two entries do not match.','bad');
+  try{
+    const r=await post('/api/password',{password:a},$('#pwSave'));
+    $('#pw1').value='';$('#pw2').value='';
+    // Setting or changing the password invalidates what this browser already
+    // has cached, so the next refresh comes back 401. Say so instead of
+    // leaving a stale "no password" line and a dead activity stream on screen.
+    $('#pwState').textContent='A password is required on every request, stored in '
+      +(r.source==='env'?'the WOOD_PASSWORD environment variable (which wins over config.json)':r.stored_in)
+      +'. Whoever has it can search, and can also delete from the index, run OCR or write files.';
+    $('#pwSave').textContent='Change password';
+    $('#pwClear').style.display='';
+    if(r.env_override)
+      return pwMsg('Saved to config.json, but WOOD_PASSWORD is still set and wins. Remove that variable (or restart without it) for this one to take effect.','warn');
+    pwMsg('Saved. Reload this page (or reopen the app) and enter the new password when asked - leave the username blank. Until then this tab cannot reach the server.','warn');
+  }catch(e){ pwMsg(String(e.message||e),'bad'); }
+}
+async function clearPassword(){
+  if(!confirm('Remove the password? Anyone who can reach this machine will be able to open the library and delete from the index.')) return;
+  try{
+    const r=await post('/api/password',{password:''},$('#pwClear'));
+    $('#pw1').value='';$('#pw2').value='';
+    pwMsg(r.env_override
+      ? 'Cleared in config.json, but WOOD_PASSWORD is still set, so the password is still required.'
+      : 'Removed. The library is open to anyone who can reach this machine.','good');
+    loadHealth();
+  }catch(e){ pwMsg(String(e.message||e),'bad'); }
+}
+
 async function loadHealth(){
   const h=await api('/api/health');
   await loadPaths();      // keeps the scan state + on-disk PDF count live
@@ -1509,6 +1584,7 @@ async function loadHealth(){
       if(r){toast('All page vectors deleted','good');loadHealth();}
     };
   }
+  renderPw(h);
 }
 
 const es=new EventSource('/api/events');

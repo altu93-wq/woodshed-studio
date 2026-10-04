@@ -990,6 +990,9 @@ class H(BaseHTTPRequestHandler):
                                "ocr_running": bool(ocr and ocr.running()),
                                "ocr_mode": ("GPU" if ocr and ocr.cuda else "CPU") if ocr else "CPU",
                                "concept_age_min": c_age, "concept_path": c_where,
+                               "password_set": bool(store.password()),
+                               "password_source": store.password_source(),
+                               "config_path": store.CONFIG_PATH,
                                **a})
         return self._send({"error": "not found"}, 404)
 
@@ -1123,6 +1126,25 @@ class H(BaseHTTPRequestHandler):
             data = json.loads(body or b"{}")
         except Exception:
             data = {}
+        if u.path == "/api/password":
+            # Set, change or remove the shared secret. Guarded by _auth_ok()
+            # above, so whoever reaches this has already proved they know the
+            # current one - or there is none set and the app is open anyway.
+            new = data.get("password")
+            if new is None:
+                return self._send({"error": "password required"}, 400)
+            new = str(new)
+            if new and len(new) < 6:
+                return self._send({"error": "use at least 6 characters, "
+                                             "or send an empty one to remove it"}, 400)
+            try:
+                r = store.set_password(new)
+            except OSError as e:
+                return self._send({"error": "could not write config.json: " + str(e)}, 500)
+            r["env_override"] = store.password_source() == "env"
+            emit(("password set" if r["password_set"] else "password removed")
+                 + f"  (from {self.client_address[0]})")
+            return self._send(r)
         if u.path == "/api/rescan":
             n = scan_inbox()
             emit(f"rescan      {len(n)} new file(s) in the drop folder")

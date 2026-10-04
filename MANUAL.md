@@ -60,19 +60,35 @@ touch.
 
 ### Setting a password
 
-Create `config.json` next to `studio.py`:
+**Health tab → Password**, at the bottom under the activity log: type it twice,
+press **Set password**. It is written to `config.json` next to `studio.py` and
+takes effect on the very next request — no restart, and nothing to do on the
+other machine but enter it once. **Remove** clears it again, after a
+confirmation that spells out what it costs.
+
+The same thing by hand, if you prefer to edit the file:
 
 ```json
 { "password": "choose-something" }
 ```
 
-or set the `WOOD_PASSWORD` environment variable, which wins over the file.
-Restart the server afterwards.
+or set the `WOOD_PASSWORD` environment variable, which wins over the file — the
+panel says so when it sees that, because a password saved in `config.json`
+would otherwise look saved and do nothing. Editing or deleting `config.json`
+by hand is picked up live too, with no restart.
 
 The browser asks once and then remembers it for that origin, so the activity
 stream, the reader's page requests and everything after it carry it
 automatically — there is no login form to submit and no token in any URL. Leave
 the username blank; only the password matters.
+
+> **After setting or changing it, the tab you set it from loses access.** The
+> browser is holding the old secret (or none), so reload and enter the new one.
+> That is the price of the password applying without a restart.
+
+**Who can see this.** There is one shared secret, so anyone who has it can
+open the panel and change or remove the password — a shared password cannot
+tell two people apart. It is a lock on the library, not an account system.
 
 The startup banner says which state you are in:
 
