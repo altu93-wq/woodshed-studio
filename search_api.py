@@ -3,19 +3,31 @@
 Fully synchronized with index.db (pages, articles, pyear, fwwmap).
 """
 import os, re, json, sqlite3, itertools, math, time, threading
-import store, lexicon, titles
+import store, lexicon, titles, query
 
 def _words(s):
     return re.findall(r"[0-9A-Za-z][0-9A-Za-z'\-]*", s or "")
 
+
+# The free-text box now goes through query.build_match(), which understands
+# what the user typed before it reaches FTS5: it keeps Turkish letters intact
+# instead of shredding them into ASCII fragments, translates Turkish terms into
+# the English corpus, drops question words, and expands the US/UK spelling
+# pairs (mortice/mortise, rabbet/rebate) that used to cost a UK user up to
+# 97% of the matching pages. The old body is kept as build_match_ascii() so
+# the old behaviour stays reachable for comparison.
 def build_match(q="", allw="", phrase="", anyw="", none=""):
+    return query.build_match(q, allw, phrase, anyw, none)
+
+
+def build_match_ascii(q="", allw="", phrase="", anyw="", none=""):
     inc, ex = [], []
     if q:
         for m in re.finditer(r'"([^"]+)"', q):
             inc.append('"' + m.group(1).replace('"', '') + '"')
         rest = re.sub(r'"[^"]+"', " ", q)
-        for w in re.findall(r"-([0-9A-Za-z][\w\-]*)", rest):
-            ex.append(w)
+        for w in re.finditer(r"-([0-9A-Za-z][\w\-]*)", rest):
+            ex.append(w.group(1))
         rest = re.sub(r"-[0-9A-Za-z][\w\-]*", " ", rest)
         inc += ['"' + w + '"' for w in _words(rest)]
     inc += ['"' + w + '"' for w in _words(allw)]
@@ -48,8 +60,11 @@ def fts_query_exp(raw, any_mode=False):
 
     Same safety rules (everything is quoted), but every bare token may become an
     OR-group of its spelling variants (`rebate` -> `("rebate" OR "rabbet")`) and
-    Turkish terms are translated first.  Used by /api/related and /api/subgraph
-    only — the main search box keeps the plain fts_query().
+    Turkish terms are translated first.  Used by /api/related and /api/subgraph.
+
+    The main search box goes through `query.build_match()` instead, which
+    additionally keeps Turkish letters intact and drops question words - see
+    `query.py` for why the two paths are no longer one.
     """
     phrases = []
     for m in re.finditer(r'"([^"]+)"', raw or ""):
@@ -213,10 +228,16 @@ def _hybrid_ranked(c, q, coll="", ymin=None, ymax=None):
     Returns None when the semantic layer is not usable, so the caller falls
     back to the plain FTS ranking instead of returning a worse result.
     """
-    m = fts_query(q)
+    m = build_match(q)
     if not m or not hybrid_ready():
         return None
     import vectors
+    # The semantic side must be given the same understood query the keyword
+    # side got, not the raw typed text. Both halves of this function used to
+    # bypass query understanding entirely, which is why a Turkish query could
+    # report 12 863 matching pages (counted correctly by api_search) while
+    # every result it actually returned came from the vector side alone.
+    vq = query.english(q) or q
     kw = []
     if m:
         where, p = "WHERE pages MATCH ?", [m]
@@ -230,7 +251,7 @@ def _hybrid_ranked(c, q, coll="", ymin=None, ymax=None):
             "SELECT pages.rowid FROM pages "
             "LEFT JOIN pyear py ON py.rowid=pages.rowid "
             f"{where} ORDER BY bm25(pages) LIMIT ?", p + [KW_CANDIDATES])]
-    vec = [rid for rid, _ in vectors.search(q, k=VEC_CANDIDATES)]
+    vec = [rid for rid, _ in vectors.search(vq, k=VEC_CANDIDATES)]
     if not vec:
         # The vector store can be built and still be unusable at query time:
         # `fastembed` is an optional dependency, so an interpreter without it
@@ -427,9 +448,22 @@ def api_search(q="", allw="", phrase="", anyw="", none="", coll="",
                      "pdf": bool(fmp or (path and path.lower().endswith(".pdf") and os.path.exists(store.resolve_path(path)))),
                      "year": yy, "snippet": re.sub(r"\s+", " ", sn).strip()})
     c.close()
+    # Two things the UI cannot infer on its own from `hits`.
+    #
+    # `rewritten` is the list of words this module translated or re-spelled, so
+    # a Turkish query that worked can say so instead of leaving the user to
+    # wonder whether the box understood them.
+    #
+    # `kwmiss` is the honest answer to "is this list what I searched for?". The
+    # vector side will always return *something*, so a query whose words appear
+    # nowhere in the corpus used to come back as a full, confident list of
+    # unrelated pages. When the keyword side matched nothing, that list is not
+    # a result and must not be dressed up as one.
     return {"hits": hits, "total": total, "facets": facets,
             "offset": offset, "limit": limit, "match": m, "sort": sort,
-            "mode": mode, "semantic": hybrid_ready()}
+            "mode": mode, "semantic": hybrid_ready(),
+            "rewritten": query.describe(q),
+            "kwmiss": bool(hits) and total == 0 and mode != "keyword"}
 
 # ---- topic co-occurrence stats (built once) -------------------------------
 TOPIC = None

@@ -98,6 +98,14 @@ border-radius:14px;padding:3px 10px;cursor:pointer;user-select:none}
 .hit-btn:hover{background:var(--active);border-color:var(--accent)}
 #more{text-align:center;color:var(--dim);font-size:12.5px;padding:14px}
 .empty{color:var(--dim);padding:34px 16px;text-align:center;font-size:13.5px}
+/* Search notices sit above the hits: the query ran, but the list below is not
+   literally what was asked for, and that has to be said rather than implied. */
+.snotice{color:var(--dim);font-size:12.5px;line-height:1.55;padding:9px 13px;margin:0 0 10px;
+  border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:0 7px 7px 0;
+  background:var(--field)}
+.snotice b{color:var(--ink);font-weight:600}
+.snotice.warn{border-left-color:var(--mark)}
+.snotice code{color:var(--accent);font-family:inherit}
 
 /* Right panel: Tabbed Views */
 #right{flex:1.2;display:flex;flex-direction:column;min-width:0;background:var(--panel);position:relative}
@@ -377,6 +385,9 @@ color:#9fa3aa;height:340px;overflow:auto;white-space:pre-wrap;margin-top:10px}
       <span id="rsort" class="lnk" style="cursor:default;margin-left:auto"></span>
     </div>
     <div class="facets" id="facets" style="display:none"></div>
+    <!-- Sits outside #results on purpose: the hits box is replaced wholesale on
+         every search, so a notice inside it would vanish with the first page. -->
+    <div id="rnotice"></div>
     <div id="results">
       <div class="empty">Type a keyword and press Enter.<br>Use Advanced for phrases, exclusions, year and sorting.</div>
     </div>
@@ -610,7 +621,7 @@ function doSearch(reset){
   if(reset){readState();S.offset=0;S.total=null;$('#results').innerHTML='';}
   if(!gist()){
     $('#results').innerHTML='<div class="empty">Enter at least one word to search.</div>';
-    $('#rcount').textContent='';$('#mobcount').textContent='';return;
+    $('#rnotice').innerHTML='';$('#rcount').textContent='';$('#mobcount').textContent='';return;
   }
   S.loading=true;
   $('#more')&&($('#more').textContent='Loading…');
@@ -619,11 +630,12 @@ function doSearch(reset){
 
   api('/api/search?'+qstr()).then(d=>{
     S.loading=false;
-    if(d.error){$('#results').innerHTML='<div class="empty">Query error: '+esc(d.error)+'</div>';return;}
+    if(d.error){$('#results').innerHTML='<div class="empty">Query error: '+esc(d.error)+'</div>';$('#rnotice').innerHTML='';return;}
     S.total=d.total;
     S.terms=(d.match||'').replace(/"/g,'').replace(/ NOT /g,' ').split(/\s+/).filter(w=>w&&w!=='AND'&&w!=='OR'&&!w.startsWith('('));
     $('#rcount').innerHTML='<b>'+d.total.toLocaleString()+'</b> page'+(d.total===1?'':'s')+
       (d.mode==='hybrid'?' <span class="tagSem" title="Keyword (bm25) and vector results fused with Reciprocal Rank Fusion">semantic</span>':'');
+    $('#rnotice').innerHTML=searchNotice(d);
     $('#mobcount').textContent='('+d.total.toLocaleString()+')';
     $('#rsort').textContent='sorted by '+SORTLBL[S.sort];
     if(reset){renderFacets(d.facets);rebuildSide();}
@@ -631,6 +643,28 @@ function doSearch(reset){
     S.offset+=d.hits.length;
     ensureMore();
   }).catch(()=>{S.loading=false;});
+}
+
+/* A note above the results, for the two cases where "what you see" and
+   "what you asked for" are not the same thing:
+     - the words were translated (Turkish) or re-spelled (mortice/mortise);
+     - nothing in the library contains those words at all, so the list below
+       is the nearest thing by meaning rather than a match. The vector side
+       always returns something, so without this the UI would present an
+       unrelated list as though the search had worked. */
+function searchNotice(d){
+  const rw=(d.rewritten||[]).filter(a=>a&&a.length>1);
+  let h='';
+  if(d.kwmiss){
+    h+='<div class="snotice warn"><b>No page in the library contains those words.</b> '
+      +'The list below is the closest by meaning, not a match &mdash; try an English '
+      +'term, fewer words, or the spelling on the book cover.</div>';
+  }
+  if(rw.length){
+    const items=rw.slice(0,6).map(a=>a.join(' / ')).join(' &nbsp;&middot;&nbsp; ');
+    h+='<div class="snotice">Searched as '+items+(rw.length>6?' &hellip;':'')+'</div>';
+  }
+  return h;
 }
 
 function appendHits(hits){

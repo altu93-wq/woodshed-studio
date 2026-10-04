@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Woodworking lexicon for the Studio RELATED-TOPICS layer (not the main search).
+"""Woodworking lexicon: spelling variants and a Turkish seed.
 
 Two jobs:
 
   1. Spelling / orthography variants.  FTS5 (porter unicode61) does not know that
-     `rebate` and `rabbet` are the same joint, nor that `mitre` and `miter` are the
-     same cut, so a query on one spelling found 0 tagged articles while the other
+     `rebate` and `rabbet` are the same joint, nor that `mitre` and `miter` are
+     the same cut, so a query on one spelling found 0 tagged articles while the other
      found 94.  Every group member expands to `(member OR "other member")`.
 
   2. A small tr->en seed so a Turkish query still reaches the corpus
      (zıvana -> tenon/mortise, kırlangıç kuyruğu -> dovetail, ...).
 
-Used only by search_api.fts_query_exp(), which /api/related and /api/subgraph call.
-api_search() (the main search box) is deliberately untouched.
+Both are used by `query.py`, which serves the **main search box** as well as
+`search_api.fts_query_exp()` (/api/related, /api/subgraph).  This file used to be
+documented as "not the main search" - that was a real and measured bug, not a
+design choice: see the module docstring in `query.py`.  The main search box now
+reads the same tables, so this file stays the single home for the vocabulary.
 """
 
 import re
